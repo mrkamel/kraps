@@ -156,7 +156,7 @@ module Kraps
 
         TestRunner.define_method(:call) do
           Kraps::Job.new(worker: TestRunnerWorker)
-                    .parallelize(partitions: 4) { %w[item1 item2] }
+                    .parallelize(partitions: 4) { ["item1", "item2"] }
                     .map { |key, _, &block| block.call(key, 1) }
                     .reduce { |_key, value1, value2| value1 + value2 }
         end

@@ -10,7 +10,7 @@ module Kraps
 
     it "executes the specified parallelize action" do
       TestWorker.define_method(:call) do
-        Job.new(worker: TestWorker).parallelize(partitions: 8) { %w[item1 item2 item3] }
+        Job.new(worker: TestWorker).parallelize(partitions: 8) { ["item1", "item2", "item3"] }
       end
 
       build_worker(
@@ -194,7 +194,7 @@ module Kraps
           part: "0",
           action: Actions::PARALLELIZE,
           klass: "TestWorker",
-          args: %w[arg1 arg2],
+          args: ["arg1", "arg2"],
           kwargs: { "kwarg1" => "value1", "kwarg2" => "value2" },
           job_index: 0,
           step_index: 0,
@@ -202,7 +202,7 @@ module Kraps
         }
       ).call
 
-      expect(passed_args).to eq(%w[arg1 arg2])
+      expect(passed_args).to eq(["arg1", "arg2"])
       expect(passed_kwargs).to eq(kwarg1: "value1", kwarg2: "value2")
     end
 
@@ -249,7 +249,7 @@ module Kraps
         Job.new(worker: TestWorker).parallelize(partitions: 4) {}
       end
 
-      distributed_job.push_all(%w[0 1 2 3])
+      distributed_job.push_all(["0", "1", "2", "3"])
 
       build_worker(
         args: {
@@ -265,7 +265,7 @@ module Kraps
         }
       ).call
 
-      expect(distributed_job.open_parts.to_a).to eq(%w[1 2 3])
+      expect(distributed_job.open_parts.to_a).to eq(["1", "2", "3"])
     end
 
     it "respects the specified memory limit in parallelize" do

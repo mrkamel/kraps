@@ -74,3 +74,6 @@ Metrics/ClassLength:
 
 Lint/EmptyClass:
   Enabled: false
+
+Style/WordArray:
+  Enabled: false
