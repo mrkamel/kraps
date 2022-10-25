@@ -35,10 +35,10 @@ module Kraps
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
-           .map do |key, _, &block|
-             block.call(key + "a", 1)
-             block.call(key + "b", 1)
-             block.call(key + "c", 1)
+           .map do |key, _, collector|
+             collector.call(key + "a", 1)
+             collector.call(key + "b", 1)
+             collector.call(key + "c", 1)
            end
       end
 

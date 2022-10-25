@@ -32,7 +32,7 @@ class SearchLogCounter
     job = Kraps::Job.new(worker: MyKrapsWorker)
     job = job.parallelize(partitions: 128) { Date.parse(start_date)..Date.parse(end_date) }
 
-    job = job.map do |date, _, &collector|
+    job = job.map do |date, _, collector|
       # fetch log file for the date from e.g. s3
 
       File.open(logfile).each_line do |line|
@@ -144,7 +144,7 @@ The block must return an enumerable. The items are used as keys, values are set 
 * `map`: Maps the key value pairs to other key value pairs
 
 ```ruby
-job.map(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |key, value, &collector|
+job.map(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |key, value, collector|
   collector.call("changed #{key}", "changed #{value}")
 end
 ```
@@ -199,7 +199,7 @@ class SearchLogCounter
     count_job = Kraps::Job.new(worker: SomeBackgroundWorker)
     count_job = count_job.parallelize(partitions: 128) { Date.parse(start_date)..Date.parse(end_date) }
 
-    count_job = count_job.map do |date, _, &collector|
+    count_job = count_job.map do |date, _, collector|
       # ...
 
       collector.call(data["q"], 1)
@@ -211,7 +211,7 @@ class SearchLogCounter
       count1 + count2
     end
 
-    sum_job = count_job.map do |q, count, &collector|
+    sum_job = count_job.map do |q, count, collector|
       collector.call('sum', count)
     end
 

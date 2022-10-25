@@ -16,9 +16,9 @@ module Kraps
           job = Kraps::Job.new(worker: TestRunnerWorker)
           job = job.parallelize(partitions: 8) { "key1".."key9" }
 
-          job = job.map do |key, _, &block|
+          job = job.map do |key, _, collector|
             3.times do
-              block.call(key, key.gsub(/key/, "").to_i)
+              collector.call(key, key.gsub(/key/, "").to_i)
             end
           end
 
@@ -47,9 +47,9 @@ module Kraps
           job = Kraps::Job.new(worker: TestRunnerWorker)
           job = job.parallelize(partitions: 8) { "key1".."key9" }
 
-          job = job.map do |key, _, &block|
+          job = job.map do |key, _, collector|
             3.times do
-              block.call(key, key.gsub(/key/, "").to_i * multiplier)
+              collector.call(key, key.gsub(/key/, "").to_i * multiplier)
             end
           end
 
@@ -79,9 +79,9 @@ module Kraps
           job = Kraps::Job.new(worker: TestRunnerWorker)
           job = job.parallelize(partitions: 8) { "key1".."key9" }
 
-          job = job.map do |key, _, &block|
+          job = job.map do |key, _, collector|
             3.times do
-              block.call(key, key.gsub(/key/, "").to_i)
+              collector.call(key, key.gsub(/key/, "").to_i)
             end
           end
 
@@ -124,11 +124,11 @@ module Kraps
             ["key"]
           end
 
-          job = job.map do |key, _, &block|
+          job = job.map do |key, _, collector|
             map_calls += 1
 
-            block.call(key, 1)
-            block.call(key, 1)
+            collector.call(key, 1)
+            collector.call(key, 1)
           end
 
           job = job.reduce do |_key, value1, value2|
@@ -157,7 +157,7 @@ module Kraps
         TestRunner.define_method(:call) do
           Kraps::Job.new(worker: TestRunnerWorker)
                     .parallelize(partitions: 4) { ["item1", "item2"] }
-                    .map { |key, _, &block| block.call(key, 1) }
+                    .map { |key, _, collector| collector.call(key, 1) }
                     .reduce { |_key, value1, value2| value1 + value2 }
         end
 

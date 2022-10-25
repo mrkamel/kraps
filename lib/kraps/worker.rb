@@ -33,9 +33,7 @@ module Kraps
       mapper.map(@args["item"])
 
       mapper.shuffle do |partition, tempfile| # TODO: upload in parallel
-        Kraps.driver.driver.store(
-          Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), tempfile, Kraps.driver.bucket
-        )
+        Kraps.driver.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), tempfile, Kraps.driver.bucket)
       end
     end
 
@@ -50,7 +48,7 @@ module Kraps
 
       implementation = Object.new
       implementation.define_singleton_method(:map) do |key, value, &block|
-        current_step.block.call(key, value, &block)
+        current_step.block.call(key, value, block)
       end
 
       mapper = MapReduce::Mapper.new(implementation, partitioner: partitioner, memory_limit: @memory_limit)
@@ -84,10 +82,7 @@ module Kraps
 
       reducer = MapReduce::Reducer.new(implementation)
 
-      Parallelizer.each(
-        Kraps.driver.driver.list(Kraps.driver.bucket,
-                                 prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency
-      ) do |file|
+      Parallelizer.each(Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency) do |file|
         Kraps.driver.driver.download(file, Kraps.driver.bucket, reducer.add_chunk)
       end
 
@@ -97,9 +92,7 @@ module Kraps
         tempfile.puts(JSON.generate([key, value]))
       end
 
-      Kraps.driver.driver.store(
-        Kraps.driver.with_prefix("#{@args["token"]}/#{@args["partition"]}/chunk.#{@args["part"]}.json"), tempfile.tap(&:rewind), Kraps.driver.bucket
-      )
+      Kraps.driver.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{@args["partition"]}/chunk.#{@args["part"]}.json"), tempfile.tap(&:rewind), Kraps.driver.bucket)
     ensure
       tempfile&.close(true)
     end
@@ -107,10 +100,7 @@ module Kraps
     def perform_each_partition
       temp_paths = TempPaths.new
 
-      Parallelizer.each(
-        Kraps.driver.driver.list(Kraps.driver.bucket,
-                                 prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency
-      ) do |file|
+      Parallelizer.each(Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency) do |file|
         Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths.add.path)
       end
 
