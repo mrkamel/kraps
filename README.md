@@ -123,7 +123,7 @@ Your jobs can use the following methods:
 * `map(partitions:, partitioner:, worker:)`: Maps the key value pairs to other key value pairs
 * `reduce(worker:)`: Reduces the values of pairs having the same key
 * `repartition(partitions:, partitioner:, worker:)`: Used to change the partitioning
-* `each_partition(worker:)`: Pass all data of each partition as a lazy enumerable
+* `each_partition(worker:)`: Passes all data of each partition as a lazy enumerable
 
 ## More Complex Jobs
 
