@@ -84,7 +84,7 @@ module Kraps
       it "adds a corresponding map step" do
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) { [1, 2, 3] }
-        job = job.repartition(partitions: 16) {}
+        job = job.repartition(partitions: 16)
 
         expect(job.steps).to match(
           [
@@ -92,6 +92,13 @@ module Kraps
             an_object_having_attributes(action: Actions::MAP, args: { partitions: 16, partitioner: kind_of(MapReduce::HashPartitioner), worker: TestJobWorker1 }, block: kind_of(Proc))
           ]
         )
+
+        collected = []
+        collector = ->(key, value) { collected.push([key, value]) }
+
+        job.steps.last.block.call("key", "value", &collector)
+
+        expect(collected).to eq([["key", "value"]])
       end
 
       it "respects the passed partitioner and worker" do
@@ -99,7 +106,7 @@ module Kraps
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) { [1, 2, 3] }
-        job = job.repartition(partitions: 16, partitioner: partitioner, worker: TestJobWorker2) {}
+        job = job.repartition(partitions: 16, partitioner: partitioner, worker: TestJobWorker2)
 
         expect(job.steps).to match(
           [

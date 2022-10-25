@@ -2,12 +2,12 @@
 
 **Easily process big data in ruby**
 
-Kraps allows to process and perform calculations on extremely large datasets in
+Kraps allows to process and perform calculations on very large datasets in
 parallel using a map/reduce framework and runs on a background job framework
 you already have. You just need some space on your filesystem, a storage layer
 (usually s3) with temporary lifecycle policy enabled, the already mentioned
 background job framework (like sidekiq, shoryuken, etc) and redis to keep track
-of the progress.
+of the progress. Things you most likely already have in place anyways.
 
 ## Installation
 
@@ -29,7 +29,7 @@ log files to analyze how often search queries have been searched:
 ```ruby
 class SearchLogCounter
   def call(start_date:, end_date:)
-    job = Kraps::Job.new(worker: SomeBackgroundWorker)
+    job = Kraps::Job.new(worker: MyKrapsWorker)
     job = job.parallelize(partitions: 128) { Date.parse(start_date)..Date.parse(end_date) }
 
     job = job.map do |date, _, &collector|
@@ -63,16 +63,16 @@ class SearchLogCounter
 end
 ```
 
-Please note that this is represents a specification of your job. It should be
-as free as possible from side effects, because your background jobs must also
-be able to take this specification to be told what to do as Kraps will run the
-job with maximum concurrency.
+Please note that this represents a specification of your job. It should be as
+free as possible from side effects, because your background jobs must also be
+able to take this specification to be told what to do as Kraps will run the job
+with maximum concurrency.
 
-Next thing you need to do: create a background worker, which runs arbitrary
-Kraps job steps. Let's assume you have sidekiq in place:
+Next thing you need to do: create the background worker which runs arbitrary
+Kraps job steps. Assuming you have sidekiq in place:
 
 ```ruby
-class KrapsWorker
+class MyKrapsWorker
   include Sidekiq::Worker
 
   def perform(json)
@@ -82,10 +82,10 @@ end
 ```
 
 The `json` argument is automatically enqueued by Kraps and contains everything
-Kraps needs to know about the job and step to execute. The `memory_limit` tells
+it needs to know about the job and step to execute. The `memory_limit` tells
 Kraps how much memory it is allowed to allocate for temporary chunks, etc. This
 value depends on the memory size of your container/server and how much worker
-threads your background queue spawns.  Let's say your container/server has 2
+threads your background queue spawns. Let's say your container/server has 2
 gigabytes of memory and your background framework spawns 5 threads.
 Theoretically, you might be able to give 300-400 megabytes to Kraps then. The
 `chunk_limit` ensures that only the specified amount of chunks are processed in
@@ -107,23 +107,85 @@ in parallel. How many "parts" a step has largely boils down to the number of
 partitions you specify in the job respectively steps. More concretely, As your
 data consists of `(key, value)` pairs, the number of partitions specify how
 your data gets split. Kraps assigns every `key` to a partition, either using a
-custom `partitioner` or the default build in hash partitioner. The hash
+custom `partitioner` or the default built in hash partitioner. The hash
 partitioner simply calculates a hash of your key modulo the number of
 partitions and the resulting partition number is the partition where the
 respective key is assigned to. Finally, `retries` specifies how often Kraps
 should retry the job step in case of errors. Kraps will sleep for 5 seconds
 between those retries. Please note that it's not yet possible to use the retry
-mechanism of your background job framework.
+mechanism of your background job framework with Kraps.
+
+A partitioner is a callable which gets the key as argument and returns a
+partition number. The built in hash partitioner looks similar to this one:
+
+```ruby
+partitioner = proc { |key| Digest::SHA1.hexdigest(key.inspect)[0..4].to_i(16) % 128 } # 128 partitions
+```
+
+Please note, it's important that the partitioner and the specified number of
+partitions stays in sync. When you use a custom partitioner, please make sure
+that the partitioner operates on the same number of partitions you specify.
 
 ## API
 
-Your jobs can use the following methods:
+Your jobs can use the following list of methods. Please note that you don't
+always need to specify all the parameters listed here. Especially `partitions`,
+`partitioner` and `worker` are used from the previous step unless changed in
+the next one.
 
-* `parallelize(partitions:, partitioner:, worker:)`: Used to seed the job with initial data
-* `map(partitions:, partitioner:, worker:)`: Maps the key value pairs to other key value pairs
-* `reduce(worker:)`: Reduces the values of pairs having the same key
-* `repartition(partitions:, partitioner:, worker:)`: Used to change the partitioning
-* `each_partition(worker:)`: Passes all data of each partition as a lazy enumerable
+* `parallelize`: Used to seed the job with initial data
+
+```ruby
+job.parallelize(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) { ["item1", "item2", "item3"] }
+```
+
+The block must return an enumerable. The items are used as keys, values are set to `nil`
+
+* `map`: Maps the key value pairs to other key value pairs
+
+```ruby
+job.map(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |key, value, &collector|
+  collector.call("changed #{key}", "changed #{value}")
+end
+```
+
+The block gets each key-value pair passed and the `collector` block can be
+called as often as neccessary. This is also the reason why `map` can not simply
+return the new key-value pair, but the `collector` must be used instead.
+
+* `reduce`: Reduces the values of pairs having the same key
+
+```ruby
+job.reduce(worker: MyKrapsWorker) do |key, value1, value2|
+  value1 + value2
+end
+```
+
+When the same key exists multiple times in the data, kraps feeds the values
+into your reduce block and expects to get one value returned. This happens
+until every key exists only once.
+
+* `repartition`: Used to change the partitioning
+
+```ruby
+job.repartition(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker)
+```
+
+Repartitions all data into the specified number of partitions and using the
+specified partitioner.
+
+* `each_partition`: Passes all data of each partition as a lazy enumerable
+
+```ruby
+job.each_partition do |partition|
+  partition.each do |key, value|
+    # ...
+  end
+end
+```
+
+Iterate all partitions where the data of the partition is passed to the block
+using a lazy enumerable.
 
 ## More Complex Jobs
 
@@ -167,6 +229,21 @@ end
 When you execute the job, Kraps will execute the jobs one after another and as
 the jobs build up on each other, Kraps will execute the steps shared by both
 jobs only once.
+
+## Dependencies
+
+Kraps is built on top of
+[map-reduce-ruby](https://github.com/mrkamel/map-reduce-ruby) for the
+map/reduce framework,
+[distributed_job](https://github.com/mrkamel/distributed_job)
+to keep track of the job/step status,
+[attachie](https://github.com/mrkamel/attachie) to interact with the storage
+layer (s3),
+[ruby-progressbar](https://github.com/jfelchner/ruby-progressbar) to
+report the progress in the terminal.
+
+It is highly recommended to check out `map-reduce-ruby` to dig into internals
+and performance details.
 
 ## Contributing
 

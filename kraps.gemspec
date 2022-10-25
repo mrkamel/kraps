@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.email = ["vetter@flakks.com"]
 
   spec.summary = "Easily process big data in ruby"
-  spec.description = "Kraps allows to process and perform calculations on extremely large datasets in parallel"
+  spec.description = "Kraps allows to process and perform calculations on very large datasets in parallel"
   spec.homepage = "https://github.com/mrkamel/kraps"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 2.7.0"
