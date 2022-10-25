@@ -1,12 +1,13 @@
 module Kraps
   class Runner
-    def initialize(klass, *args, **kwargs)
+    def initialize(klass)
       @klass = klass
-      @args = args
-      @kwargs = kwargs
     end
 
-    def call
+    def call(*args, **kwargs)
+      @args = args
+      @kwargs = kwargs
+
       Array(@klass.new.call(*@args, **@kwargs)).each_with_index do |job, job_index|
         job.steps.each_with_index.inject(nil) do |frame, (step, step_index)|
           raise(InvalidAction, "Invalid action #{step.action}") unless Actions::ALL.include?(step.action)

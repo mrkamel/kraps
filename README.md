@@ -76,7 +76,7 @@ class MyKrapsWorker
   include Sidekiq::Worker
 
   def perform(json)
-    Kraps::Worker.new(json, memory_limit: 128.megabytes, chunk_limit: 64, concurrency: 8).call
+    Kraps::Worker.new(json, memory_limit: 128.megabytes, chunk_limit: 64, concurrency: 8).call(retries: 3)
   end
 end
 ```
@@ -92,14 +92,17 @@ Theoretically, you might be able to give 300-400 megabytes to Kraps then. The
 a single run. A run basically means: it takes up to `chunk_limit` chunks,
 reduces them and pushes the result as a new chunk to the list of chunks to
 process. Thus, if your number of file descriptors is unlimited, you want to set
-it to a higher number to avoid the overhead of multiple runs. Finally,
-`concurrency` tells Kraps how much threads to use to concurrently
-upload/download files from the storage layer.
+it to a higher number to avoid the overhead of multiple runs. `concurrency`
+tells Kraps how much threads to use to concurrently upload/download files from
+the storage layer. Finally, `retries` specifies how often Kraps should retry
+the job step in case of errors. Kraps will sleep for 5 seconds between those
+retries. Please note that it's not yet possible to use the retry mechanism of
+your background job framework with Kraps.
 
 Now, executing your job is super easy:
 
 ```ruby
-Kraps::Runner.new(SearchLogCounter, start_date: '2018-01-01', end_date: '2022-01-01').call(retries: 3)
+Kraps::Runner.new(SearchLogCounter).call(start_date: '2018-01-01', end_date: '2022-01-01')
 ```
 
 This will execute all steps of your job, where all parts of a step are executed
@@ -110,10 +113,7 @@ your data gets split. Kraps assigns every `key` to a partition, either using a
 custom `partitioner` or the default built in hash partitioner. The hash
 partitioner simply calculates a hash of your key modulo the number of
 partitions and the resulting partition number is the partition where the
-respective key is assigned to. Finally, `retries` specifies how often Kraps
-should retry the job step in case of errors. Kraps will sleep for 5 seconds
-between those retries. Please note that it's not yet possible to use the retry
-mechanism of your background job framework with Kraps.
+respective key is assigned to.
 
 A partitioner is a callable which gets the key as argument and returns a
 partition number. The built in hash partitioner looks similar to this one:

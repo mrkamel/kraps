@@ -66,7 +66,7 @@ module Kraps
           job
         end
 
-        described_class.new(TestRunner, 2, divisor: 1.5).call
+        described_class.new(TestRunner).call(2, divisor: 1.5)
 
         expect(store).to eq("key1" => 4, "key2" => 8, "key3" => 12, "key4" => 16, "key5" => 20, "key6" => 24, "key7" => 28, "key8" => 32, "key9" => 36)
       end
@@ -104,7 +104,7 @@ module Kraps
           [job1, job2]
         end
 
-        described_class.new(TestRunner, multiplier1: 2, multiplier2: 3).call
+        described_class.new(TestRunner).call(multiplier1: 2, multiplier2: 3)
 
         expect(store1).to eq("key1" => 6, "key2" => 12, "key3" => 18, "key4" => 24, "key5" => 30, "key6" => 36, "key7" => 42, "key8" => 48, "key9" => 54)
         expect(store2).to eq("key1" => 9, "key2" => 18, "key3" => 27, "key4" => 36, "key5" => 45, "key6" => 54, "key7" => 63, "key8" => 72, "key9" => 81)
