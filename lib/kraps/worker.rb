@@ -42,10 +42,7 @@ module Kraps
     def perform_map
       temp_paths = TempPaths.new
 
-      Parallelizer.each(
-        Kraps.driver.driver.list(Kraps.driver.bucket,
-                                 prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency
-      ) do |file|
+      Parallelizer.each(Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency) do |file|
         Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths.add.path)
       end
 

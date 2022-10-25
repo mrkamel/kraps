@@ -11,8 +11,7 @@ module Kraps
         job.steps.each_with_index.inject(nil) do |frame, (step, step_index)|
           raise(InvalidAction, "Invalid action #{step.action}") unless Actions::ALL.include?(step.action)
 
-          step.frame ||= send(:"perform_#{step.action}",
-                              job_index: job_index, step_index: step_index, frame: frame, step: step, **step.args, &step.block)
+          step.frame ||= send(:"perform_#{step.action}", job_index: job_index, step_index: step_index, frame: frame, step: step, **step.args, &step.block)
         end
       end
     end
@@ -130,12 +129,7 @@ module Kraps
 
     def wait(distributed_job, name:, job_index:, step_index:)
       format = "#{name}, job #{job_index + 1}, step #{step_index + 1}, token #{distributed_job.token}: %a %c/%C (%p%)"
-      progress_bar = if Kraps.show_progress?
-                       ProgressBar.create(format: format)
-                     else
-                       ProgressBar.create(format: format,
-                                          output: ProgressBar::Outputs::Null)
-                     end
+      progress_bar = Kraps.show_progress? ? ProgressBar.create(format: format) : ProgressBar.create(format: format, output: ProgressBar::Outputs::Null)
 
       until distributed_job.finished? || distributed_job.stopped?
         sleep 5

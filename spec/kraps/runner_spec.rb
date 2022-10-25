@@ -8,7 +8,7 @@ class TestRunner; end
 
 module Kraps
   RSpec.describe Runner do
-    describe "#run" do
+    describe "#call" do
       it "requests the job spec, iterates and runs the jobs and steps" do
         store = {}
 
