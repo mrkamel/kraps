@@ -84,7 +84,7 @@ module Kraps
       it "adds a corresponding map step" do
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) { [1, 2, 3] }
-        job = job.repartition(partitions: 16)
+        job = job.repartition(partitions: 16) {}
 
         expect(job.steps).to match(
           [
@@ -99,7 +99,7 @@ module Kraps
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) { [1, 2, 3] }
-        job = job.repartition(partitions: 16, partitioner: partitioner, worker: TestJobWorker2)
+        job = job.repartition(partitions: 16, partitioner: partitioner, worker: TestJobWorker2) {}
 
         expect(job.steps).to match(
           [

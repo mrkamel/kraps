@@ -120,6 +120,7 @@ Your jobs can use the following methods:
 * `parallelize(partitions:, partitioner:, worker:)`: Used to seed the job with initial data
 * `map(partitions:, partitioner:, worker:)`: Maps the key value pairs to other key value pairs
 * `reduce(worker:)`: Reduces the values of pairs having the same key
+* `repartition(partitions:, partitioner:, worker:)`: Used to change the partitioning
 * `each_partition(worker:)`: Iterates over all data of all partitions
 
 ## More Complex Jobs

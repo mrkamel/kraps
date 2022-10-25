@@ -17,8 +17,7 @@ module Kraps
           @partitions = partitions
           @partitioner = partitioner
 
-          @steps << Step.new(action: Actions::PARALLELIZE,
-                             args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
+          @steps << Step.new(action: Actions::PARALLELIZE, args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
         end
       end
     end
@@ -29,8 +28,7 @@ module Kraps
           @partitions = partitions if partitions
           @partitioner = partitioner || MapReduce::HashPartitioner.new(partitions) if partitioner || partitions
 
-          @steps << Step.new(action: Actions::MAP,
-                             args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
+          @steps << Step.new(action: Actions::MAP, args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
         end
       end
     end
@@ -38,8 +36,7 @@ module Kraps
     def reduce(worker: @worker, &block)
       fresh.tap do |job|
         job.instance_eval do
-          @steps << Step.new(action: Actions::REDUCE,
-                             args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
+          @steps << Step.new(action: Actions::REDUCE, args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
         end
       end
     end
@@ -47,8 +44,7 @@ module Kraps
     def each_partition(worker: @worker, &block)
       fresh.tap do |job|
         job.instance_eval do
-          @steps << Step.new(action: Actions::EACH_PARTITION,
-                             args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
+          @steps << Step.new(action: Actions::EACH_PARTITION, args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
         end
       end
     end
