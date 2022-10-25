@@ -81,18 +81,20 @@ class KrapsWorker
 end
 ```
 
-The `memory_limit` tells Kraps how much memory it is allowed to allocate for
-temporary chunks, etc. This value depends on the memory size of your
-container/server and how much worker threads your background queue spawns.
-Let's say your container/server has 2 gigabytes of memory and your background
-framework spawns 5 threads. Theoretically, you might be able to give 300-400
-megabytes to Kraps then. The `chunk_limit` ensures that only the specified
-amount of chunks are processed in a single run. A run basically means: it takes
-up to `chunk_limit` chunks, reduces them and pushes the result as a new chunk
-to the list of chunks to process. Thus, if your number of file descriptors is
-unlimited, you want to set it to a higher number to avoid the overhead of
-multiple runs. Finally, `concurrency` tells Kraps how much threads to use to
-concurrently upload/download files from the storage layer.
+The `json` argument is automatically enqueued by Kraps and contains everything
+Kraps needs to know about the job and step to execute. The `memory_limit` tells
+Kraps how much memory it is allowed to allocate for temporary chunks, etc. This
+value depends on the memory size of your container/server and how much worker
+threads your background queue spawns.  Let's say your container/server has 2
+gigabytes of memory and your background framework spawns 5 threads.
+Theoretically, you might be able to give 300-400 megabytes to Kraps then. The
+`chunk_limit` ensures that only the specified amount of chunks are processed in
+a single run. A run basically means: it takes up to `chunk_limit` chunks,
+reduces them and pushes the result as a new chunk to the list of chunks to
+process. Thus, if your number of file descriptors is unlimited, you want to set
+it to a higher number to avoid the overhead of multiple runs. Finally,
+`concurrency` tells Kraps how much threads to use to concurrently
+upload/download files from the storage layer.
 
 Now, executing your job is super easy:
 
