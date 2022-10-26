@@ -96,7 +96,7 @@ module Kraps
         collected = []
         collector = ->(key, value) { collected.push([key, value]) }
 
-        job.steps.last.block.call("key", "value", &collector)
+        job.steps.last.block.call("key", "value", collector)
 
         expect(collected).to eq([["key", "value"]])
       end

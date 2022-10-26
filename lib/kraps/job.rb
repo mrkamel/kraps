@@ -50,7 +50,7 @@ module Kraps
     end
 
     def repartition(partitions:, partitioner: nil, worker: @worker)
-      map(partitions: partitions, partitioner: partitioner, worker: worker) do |key, value, &collector|
+      map(partitions: partitions, partitioner: partitioner, worker: worker) do |key, value, collector|
         collector.call(key, value)
       end
     end
