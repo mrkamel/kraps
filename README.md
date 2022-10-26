@@ -21,7 +21,7 @@ If bundler is not being used to manage dependencies, install the gem by executin
 
 ## Usage
 
-The first thing you need to do, is to tell Kraps about your desired
+The first thing you need to do is to tell Kraps about your desired
 configuration in an initializer for example:
 
 ```ruby
@@ -206,6 +206,10 @@ end
 When the same key exists multiple times in the data, kraps feeds the values
 into your reduce block and expects to get one value returned. This happens
 until every key exists only once.
+
+The `key` itself is also passed to the block for the case that you need to
+customize the reduce calculation according to the value of the key. However,
+most of the time, this is not neccessary and the key can simply be ignored.
 
 * `repartition`: Used to change the partitioning
 
