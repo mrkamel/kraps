@@ -59,10 +59,10 @@ class SearchLogCounter
       count1 + count2
     end
 
-    job = job.each_partition do |partition|
+    job = job.each_partition do |partition, pairs|
       tempfile = Tempfile.new
 
-      partition.each do |q, count|
+      pairs.each do |q, count|
         tempfile.puts(JSON.generate(q: q, count: count))
       end
 
@@ -197,11 +197,12 @@ job.repartition(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker
 Repartitions all data into the specified number of partitions and using the
 specified partitioner.
 
-* `each_partition`: Passes all data of each partition as a lazy enumerable
+* `each_partition`: Passes the partition number and all data of each partition
+  as a lazy enumerable
 
 ```ruby
-job.each_partition do |partition|
-  partition.each do |key, value|
+job.each_partition do |partition, pairs|
+  pairs.each do |key, value|
     # ...
   end
 end

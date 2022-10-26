@@ -112,7 +112,7 @@ module Kraps
         end
       end
 
-      step.block.call(enum)
+      step.block.call(@args["partition"], enum)
     ensure
       temp_paths&.unlink
     end

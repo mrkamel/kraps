@@ -132,12 +132,15 @@ module Kraps
 
     it "executes the specified each partition action" do
       store = {}
+      partitions = []
 
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
-           .each_partition do |partition|
-             partition.each do |key, value|
+           .each_partition do |partition, pairs|
+             partitions << partition
+
+             pairs.each do |key, value|
                (store[key] ||= []) << value
              end
            end
@@ -174,6 +177,7 @@ module Kraps
         }
       ).call
 
+      expect(partitions).to match_array([0])
       expect(store).to eq("item1" => [1, 2], "item2" => [3, 1], "item3" => [4, 2], "item4" => [2])
     end
 

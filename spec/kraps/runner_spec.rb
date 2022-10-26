@@ -26,8 +26,8 @@ module Kraps
             value1 + value2
           end
 
-          job = job.each_partition do |partition|
-            partition.each do |key, value|
+          job = job.each_partition do |_, pairs|
+            pairs.each do |key, value|
               store[key] = value
             end
           end
@@ -57,8 +57,8 @@ module Kraps
             value1 + value2
           end
 
-          job = job.each_partition do |partition|
-            partition.each do |key, value|
+          job = job.each_partition do |_, pairs|
+            pairs.each do |key, value|
               store[key] = value / divisor
             end
           end
@@ -89,14 +89,14 @@ module Kraps
             value1 + value2
           end
 
-          job1 = job.each_partition do |partition|
-            partition.each do |key, value|
+          job1 = job.each_partition do |_, pairs|
+            pairs.each do |key, value|
               store1[key] = value * multiplier1
             end
           end
 
-          job2 = job.each_partition do |partition|
-            partition.each do |key, value|
+          job2 = job.each_partition do |_, pairs|
+            pairs.each do |key, value|
               store2[key] = value * multiplier2
             end
           end
