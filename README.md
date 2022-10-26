@@ -4,10 +4,10 @@
 
 Kraps allows to process and perform calculations on very large datasets in
 parallel using a map/reduce framework and runs on a background job framework
-you already have. You just need some space on your filesystem, a storage layer
-(usually s3) with temporary lifecycle policy enabled, the already mentioned
-background job framework (like sidekiq, shoryuken, etc) and redis to keep track
-of the progress. Things you most likely already have in place anyways.
+you already have. You just need some space on your filesystem, S3 as a storage
+layer with temporary lifecycle policy enabled, the already mentioned background
+job framework (like sidekiq, shoryuken, etc) and redis to keep track of the
+progress. Most things you most likely already have in place anyways.
 
 ## Installation
 
@@ -149,6 +149,24 @@ that you pass to Kraps additionally must be properly sortable, such that it is
 recommended to only use strings, numbers and arrays or a combination of those
 for the keys. For more information, please check out
 https://github.com/mrkamel/map-reduce-ruby/#limitations-for-keys
+
+## Storage
+
+Kraps stores temporary results of steps in a storage layer. Currently, only S3
+is supported besides a in memory driver used for testing purposes. Please be
+aware that Kraps does not clean up any files from the storage layer, as it
+would be a safe thing to do in case of errors anyways. Instead, Kraps relies on
+lifecycle features of modern object storage systems. Therefore, it is recommend
+to e.g. configure a lifecycle policy to delete any files after e.g. 7 days
+either for a whole bucket or for a certain prefix like e.g. `temp/` and tell
+Kraps about the prefix to use (e.g. `temp/kraps/`).
+
+```ruby
+Kraps::Drivers::S3Driver.new(s3_client: Aws::S3::Client.new("..."), bucket: "some-bucket", prefix: "temp/kraps/"),
+```
+
+If you set up the lifecycle policy for the whole bucket instead and Kraps is
+the only user of the bucket, then no prefix needs to be specified.
 
 ## API
 
