@@ -31,6 +31,7 @@ Kraps.configure(
   namespace: "my-application", # An optional namespace to be used for redis keys, default: nil
   job_ttl: 24.hours, # Job information in redis will automatically be removed after this amount of time, default: 24 hours
   show_progress: true # Whether or not to show the progress in the terminal when executing jobs, default: true
+  enqueuer: ->(worker, json) { worker.perform_async(json) } # Allows to customize the enqueueing of worker jobs
 )
 ```
 

@@ -150,9 +150,13 @@ module Kraps
         expect(reduce_calls).to eq(1)
       end
 
-      it "enqueues the worker jobs" do
+      it "enqueues the worker jobs using the configured enqueuer" do
+        enqueuer = double
+        allow(enqueuer).to receive(:call)
+
+        Kraps.configure(driver: FakeDriver, redis: RedisClient, enqueuer: enqueuer)
+
         allow(SecureRandom).to receive(:hex).and_return("token1", "token2", "token3")
-        allow(TestRunnerWorker).to receive(:perform_async)
 
         TestRunner.define_method(:call) do
           Kraps::Job.new(worker: TestRunnerWorker)
@@ -165,17 +169,17 @@ module Kraps
         allow(runner).to receive(:wait)
         runner.call
 
-        expect(TestRunnerWorker).to have_received(:perform_async)
-          .with(JSON.generate(job_index: 0, step_index: 0, frame: {}, action: Actions::PARALLELIZE, token: "token1", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, item: "item1"))
-          .with(JSON.generate(job_index: 0, step_index: 0, frame: {}, action: Actions::PARALLELIZE, token: "token1", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, item: "item2"))
-          .with(JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 0))
-          .with(JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 1))
-          .with(JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "2", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 2))
-          .with(JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "3", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 3))
-          .with(JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 0))
-          .with(JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 1))
-          .with(JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "2", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 2))
-          .with(JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "3", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 3))
+        expect(enqueuer).to have_received(:call)
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, action: Actions::PARALLELIZE, token: "token1", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, item: "item1"))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, action: Actions::PARALLELIZE, token: "token1", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, item: "item2"))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 0))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 1))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "2", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 2))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "3", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 3))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 0))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 1))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "2", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 2))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "3", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 3))
       end
 
       it "stops and raises a JobStopped error when a distributed job was stopped" do

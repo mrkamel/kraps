@@ -110,9 +110,8 @@ module Kraps
     end
 
     def enqueue(job_index:, step_index:, frame:, step:, action:, token:, part:, **rest)
-      # TODO: allow to customize the enqueing
-
-      step.args[:worker].perform_async(
+      Kraps.enqueuer.call(
+        step.args[:worker],
         JSON.generate(
           job_index: job_index,
           step_index: step_index,
@@ -132,13 +131,15 @@ module Kraps
       format = "#{name}, job #{job_index + 1}, step #{step_index + 1}, token #{distributed_job.token}: %a %c/%C (%p%)"
       progress_bar = Kraps.show_progress? ? ProgressBar.create(format: format) : ProgressBar.create(format: format, output: ProgressBar::Outputs::Null)
 
-      until distributed_job.finished? || distributed_job.stopped?
-        sleep 5
-
+      loop do
         total = distributed_job.total
 
         progress_bar.total = total
         progress_bar.progress = [total, total - distributed_job.count].min
+
+        break if distributed_job.finished? || distributed_job.stopped?
+
+        sleep 5
       end
 
       raise(JobStopped, "The job was stopped") if distributed_job.stopped?

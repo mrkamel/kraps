@@ -14,16 +14,18 @@ require "ruby-progressbar"
 require "ruby-progressbar/outputs/null"
 require "map_reduce"
 require "redis"
+
 module Kraps
   class Error < StandardError; end
   class InvalidAction < Error; end
   class InvalidStep < Error; end
   class JobStopped < Error; end
 
-  def self.configure(driver:, redis: Redis.new, namespace: nil, job_ttl: 24 * 60 * 60, show_progress: true)
+  def self.configure(driver:, redis: Redis.new, namespace: nil, job_ttl: 24 * 60 * 60, show_progress: true, enqueuer: ->(worker, json) { worker.perform_async(json) })
     @driver = driver
     @distributed_job_client = DistributedJob::Client.new(redis: redis, namespace: namespace, default_ttl: job_ttl)
     @show_progress = show_progress
+    @enqueuer = enqueuer
   end
 
   def self.driver
@@ -36,5 +38,9 @@ module Kraps
 
   def self.show_progress?
     @show_progress
+  end
+
+  def self.enqueuer
+    @enqueuer
   end
 end
