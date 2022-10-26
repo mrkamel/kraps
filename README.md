@@ -21,10 +21,23 @@ If bundler is not being used to manage dependencies, install the gem by executin
 
 ## Usage
 
-The first think you need to do, is to create a job class, which tells Kraps
-what your job should do. Therefore, you create some class with a `call` method,
-and optionally some arguments. Let's create a simple job, which reads search
-log files to analyze how often search queries have been searched:
+The first thing you need to do, is to tell Kraps about your desired
+configuration in an initializer for example:
+
+```ruby
+Kraps.configure(
+  driver: Kraps::Drivers::S3Driver.new(s3_client: Aws::S3::Client.new("..."), bucket: "some-bucket", prefix: "temp/kraps/"),
+  redis: Redis.new,
+  namespace: "my-application", # An optional namespace to be used for redis keys, default: nil
+  job_ttl: 24.hours, # Job information in redis will automatically be removed after this amount of time, default: 24 hours
+  show_progress: true # Whether or not to show the progress in the terminal when executing jobs, default: true
+)
+```
+
+Afterwards, create a job class, which tells Kraps what your job should do.
+Therefore, you create some class with a `call` method, and optionally some
+arguments. Let's create a simple job, which reads search log files to analyze
+how often search queries have been searched:
 
 ```ruby
 class SearchLogCounter
