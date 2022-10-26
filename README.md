@@ -208,9 +208,6 @@ job.each_partition do |partition, pairs|
 end
 ```
 
-Iterate all partitions where the data of the partition is passed to the block
-using a lazy enumerable.
-
 ## More Complex Jobs
 
 Please note that a job class can return multiple jobs and jobs can build up on
