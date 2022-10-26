@@ -126,6 +126,16 @@ Please note, it's important that the partitioner and the specified number of
 partitions stays in sync. When you use a custom partitioner, please make sure
 that the partitioner operates on the same number of partitions you specify.
 
+## Datatypes
+
+Be aware that Kraps converts everything you pass to it to JSON sooner or later,
+i.e. symbols will be converted to strings, etc. Therefore, it is recommended to
+only use the json compatible datatypes right from the start. However, the keys
+that you pass to Kraps additionally must be properly sortable, such that it is
+recommended to only use strings, numbers and arrays or a combination of those
+for the keys. For more information, please check out
+https://github.com/mrkamel/map-reduce-ruby/#limitations-for-keys
+
 ## API
 
 Your jobs can use the following list of methods. Please note that you don't
