@@ -46,7 +46,7 @@ module Kraps
         hash[file] = temp_paths.add
       end
 
-      Parallelizer.each(files.each_with_index.to_a, @concurrency) do |(file, index)|
+      Parallelizer.each(files, @concurrency) do |file|
         Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
       end
 
@@ -112,7 +112,7 @@ module Kraps
         hash[file] = temp_paths.add
       end
 
-      Parallelizer.each(files.each_with_index.to_a, @concurrency) do |(file, index)|
+      Parallelizer.each(files, @concurrency) do |file|
         Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
       end
 
