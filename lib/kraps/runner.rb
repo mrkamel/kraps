@@ -128,7 +128,7 @@ module Kraps
     end
 
     def wait(distributed_job, name:, job_index:, step_index:)
-      format = "#{name}, job #{job_index + 1}, step #{step_index + 1}, token #{distributed_job.token}: %a %c/%C (%p%)"
+      format = "#{@klass}, job #{job_index + 1}, step #{step_index + 1}, #{name}, token #{distributed_job.token}: %a %c/%C (%p%)"
       progress_bar = Kraps.show_progress? ? ProgressBar.create(format: format) : ProgressBar.create(format: format, output: ProgressBar::Outputs::Null)
 
       loop do
