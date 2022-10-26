@@ -27,7 +27,7 @@ module Kraps
 
       attr_reader :driver, :bucket, :prefix
 
-      def initialize(bucket:, prefix:)
+      def initialize(bucket:, prefix: nil)
         @driver = Attachie::FakeDriver.new
         @bucket = bucket
         @prefix = prefix
