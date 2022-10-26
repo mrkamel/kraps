@@ -40,8 +40,14 @@ module Kraps
     def perform_map
       temp_paths = TempPaths.new
 
-      Parallelizer.each(Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency) do |file|
-        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths.add.path)
+      files = Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")).sort
+
+      temp_paths_index = files.each_with_object({}) do |file, hash|
+        hash[file] = temp_paths.add
+      end
+
+      Parallelizer.each(files.each_with_index.to_a, @concurrency) do |(file, index)|
+        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
       end
 
       current_step = step
@@ -100,8 +106,14 @@ module Kraps
     def perform_each_partition
       temp_paths = TempPaths.new
 
-      Parallelizer.each(Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency) do |file|
-        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths.add.path)
+      files = Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")).sort
+
+      temp_paths_index = files.each_with_object({}) do |file, hash|
+        hash[file] = temp_paths.add
+      end
+
+      Parallelizer.each(files.each_with_index.to_a, @concurrency) do |(file, index)|
+        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
       end
 
       enum = Enumerator::Lazy.new(temp_paths) do |yielder, temp_path|
