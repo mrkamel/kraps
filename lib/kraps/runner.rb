@@ -164,7 +164,7 @@ module Kraps
     end
 
     def build_progress_bar(format)
-      progress_bar = Kraps.show_progress? ? ProgressBar.create(format: format) : ProgressBar.create(format: format, output: ProgressBar::Outputs::Null)
+      Kraps.show_progress? ? ProgressBar.create(format: format) : ProgressBar.create(format: format, output: ProgressBar::Outputs::Null)
     end
   end
 end
