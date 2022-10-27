@@ -5,7 +5,9 @@ module Kraps
   RSpec.describe Job do
     describe "#parallelize" do
       it "adds a corresponding step" do
-        block = -> { [1, 2, 3] }
+        block = proc do |collector|
+          [1, 2, 3].each { |item| collector.call(item) }
+        end
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8, &block)
@@ -16,7 +18,10 @@ module Kraps
       end
 
       it "respects the passed partitioner and worker" do
-        block = -> { [1, 2, 3] }
+        block = proc do |collector|
+          [1, 2, 3].each { |item| collector.call(item) }
+        end
+
         partitioner = ->(key) { key }
 
         job = described_class.new(worker: TestJobWorker1)
@@ -33,7 +38,8 @@ module Kraps
         block = ->(key, value, collector) { collector.call(key, value) }
 
         job = described_class.new(worker: TestJobWorker1)
-        job = job.parallelize(partitions: 8) { [1, 2, 3] }
+
+        job = job.parallelize(partitions: 8) {}
         job = job.map(&block)
 
         expect(job.steps).to match(
@@ -49,7 +55,7 @@ module Kraps
         partitioner = ->(key) { key }
 
         job = described_class.new(worker: TestJobWorker1)
-        job = job.parallelize(partitions: 8) { [1, 2, 3] }
+        job = job.parallelize(partitions: 8) {}
         job = job.map(partitions: 16, partitioner: partitioner, worker: TestJobWorker2, &block)
 
         expect(job.steps).to match(
@@ -66,7 +72,7 @@ module Kraps
         block = ->(_key, value1, value2) { value1 + value2 }
 
         job = described_class.new(worker: TestJobWorker1)
-        job = job.parallelize(partitions: 8)
+        job = job.parallelize(partitions: 8) {}
         job = job.map { |key, value, collector| collector.call(key, value) }
         job = job.reduce(&block)
 
@@ -83,7 +89,7 @@ module Kraps
     describe "#repartition" do
       it "adds a corresponding map step" do
         job = described_class.new(worker: TestJobWorker1)
-        job = job.parallelize(partitions: 8) { [1, 2, 3] }
+        job = job.parallelize(partitions: 8) {}
         job = job.repartition(partitions: 16)
 
         expect(job.steps).to match(
@@ -105,7 +111,7 @@ module Kraps
         partitioner = ->(key) { key }
 
         job = described_class.new(worker: TestJobWorker1)
-        job = job.parallelize(partitions: 8) { [1, 2, 3] }
+        job = job.parallelize(partitions: 8) {}
         job = job.repartition(partitions: 16, partitioner: partitioner, worker: TestJobWorker2)
 
         expect(job.steps).to match(
@@ -120,7 +126,7 @@ module Kraps
     describe "#each_partition" do
       it "adds a corresponding map step" do
         job = described_class.new(worker: TestJobWorker1)
-        job = job.parallelize(partitions: 8) { [1, 2, 3] }
+        job = job.parallelize(partitions: 8) {}
         job = job.each_partition {}
 
         expect(job.steps).to match(
@@ -133,7 +139,7 @@ module Kraps
 
       it "respects the passed worker" do
         job = described_class.new(worker: TestJobWorker1)
-        job = job.parallelize(partitions: 8) { [1, 2, 3] }
+        job = job.parallelize(partitions: 8) {}
         job = job.each_partition(worker: TestJobWorker2) {}
 
         expect(job.steps).to match(

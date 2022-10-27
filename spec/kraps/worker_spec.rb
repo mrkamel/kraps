@@ -10,7 +10,9 @@ module Kraps
 
     it "executes the specified parallelize action" do
       TestWorker.define_method(:call) do
-        Job.new(worker: TestWorker).parallelize(partitions: 8) { ["item1", "item2", "item3"] }
+        Job.new(worker: TestWorker).parallelize(partitions: 8) do |collector|
+          ["item1", "item2", "item3"].each { |item| collector.call(item) }
+        end
       end
 
       build_worker(

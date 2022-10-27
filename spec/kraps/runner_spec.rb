@@ -14,7 +14,10 @@ module Kraps
 
         TestRunner.define_method(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
-          job = job.parallelize(partitions: 8) { "key1".."key9" }
+
+          job = job.parallelize(partitions: 8) do |collector|
+            ("key1".."key9").each { |item| collector.call(item) }
+          end
 
           job = job.map do |key, _, collector|
             3.times do
@@ -45,7 +48,10 @@ module Kraps
 
         TestRunner.define_method(:call) do |multiplier, divisor:|
           job = Kraps::Job.new(worker: TestRunnerWorker)
-          job = job.parallelize(partitions: 8) { "key1".."key9" }
+
+          job = job.parallelize(partitions: 8) do |collector|
+            ("key1".."key9").each { |item| collector.call(item) }
+          end
 
           job = job.map do |key, _, collector|
             3.times do
@@ -77,7 +83,10 @@ module Kraps
 
         TestRunner.define_method(:call) do |multiplier1:, multiplier2:|
           job = Kraps::Job.new(worker: TestRunnerWorker)
-          job = job.parallelize(partitions: 8) { "key1".."key9" }
+
+          job = job.parallelize(partitions: 8) do |collector|
+            ("key1".."key9").each { |item| collector.call(item) }
+          end
 
           job = job.map do |key, _, collector|
             3.times do
@@ -118,10 +127,10 @@ module Kraps
         TestRunner.define_method(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
-          job = job.parallelize(partitions: 8) do
+          job = job.parallelize(partitions: 8) do |collector|
             parallelize_calls += 1
 
-            ["key"]
+            collector.call("key")
           end
 
           job = job.map do |key, _, collector|
@@ -159,10 +168,14 @@ module Kraps
         allow(SecureRandom).to receive(:hex).and_return("token1", "token2", "token3")
 
         TestRunner.define_method(:call) do
-          Kraps::Job.new(worker: TestRunnerWorker)
-                    .parallelize(partitions: 4) { ["item1", "item2"] }
-                    .map { |key, _, collector| collector.call(key, 1) }
-                    .reduce { |_key, value1, value2| value1 + value2 }
+          job = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job = job.parallelize(partitions: 4) do |collector|
+            ["item1", "item2"].each { |item| collector.call(item) }
+          end
+
+          job.map { |key, _, collector| collector.call(key, 1) }
+             .reduce { |_key, value1, value2| value1 + value2 }
         end
 
         runner = described_class.new(TestRunner)
@@ -187,7 +200,11 @@ module Kraps
 
         TestRunner.define_method(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
-          job = job.parallelize(partitions: 8) { "key1".."key9" }
+
+          job = job.parallelize(partitions: 8) do |collector|
+            ("key1".."key9").each { |item| collector.call(item) }
+          end
+
           job = job.map {}
           job
         end
@@ -195,16 +212,17 @@ module Kraps
         expect { described_class.new(TestRunner).call }.to raise_error(JobStopped, "The job was stopped")
       end
 
-      it "shows a progress bar" do
+      it "shows progress bars" do
         allow(ProgressBar).to receive(:create).and_call_original
 
         TestRunner.define_method(:call) do
-          Kraps::Job.new(worker: TestRunnerWorker).parallelize(partitions: 8) { ["item"] }
+          Kraps::Job.new(worker: TestRunnerWorker).parallelize(partitions: 8) { |collector| collector.call("item") }
         end
 
         described_class.new(TestRunner).call
 
-        expect(ProgressBar).to have_received(:create).with(format: kind_of(String))
+        expect(ProgressBar).to have_received(:create).with(format: /enqueue/)
+        expect(ProgressBar).to have_received(:create).with(format: /process/)
       end
 
       it "does not show the progress when disabled" do
@@ -213,12 +231,13 @@ module Kraps
         allow(ProgressBar).to receive(:create).and_call_original
 
         TestRunner.define_method(:call) do
-          Kraps::Job.new(worker: TestRunnerWorker).parallelize(partitions: 8) { ["item"] }
+          Kraps::Job.new(worker: TestRunnerWorker).parallelize(partitions: 8) { |collector| collector.call("item") }
         end
 
         described_class.new(TestRunner).call
 
-        expect(ProgressBar).to have_received(:create).with(format: kind_of(String), output: ProgressBar::Outputs::Null)
+        expect(ProgressBar).to have_received(:create).with(format: /enqueue/, output: ProgressBar::Outputs::Null)
+        expect(ProgressBar).to have_received(:create).with(format: /process/, output: ProgressBar::Outputs::Null)
       end
     end
   end

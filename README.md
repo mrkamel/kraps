@@ -44,7 +44,12 @@ how often search queries have been searched:
 class SearchLogCounter
   def call(start_date:, end_date:)
     job = Kraps::Job.new(worker: MyKrapsWorker)
-    job = job.parallelize(partitions: 128) { Date.parse(start_date)..Date.parse(end_date) }
+
+    job = job.parallelize(partitions: 128) do |collector|
+      (Date.parse(start_date)..Date.parse(end_date)).each do |date|
+        collector.call(date).to_s
+      end
+    end
 
     job = job.map do |date, _, collector|
       # fetch log file for the date from e.g. s3
@@ -178,10 +183,15 @@ the next one.
 * `parallelize`: Used to seed the job with initial data
 
 ```ruby
-job.parallelize(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) { ["item1", "item2", "item3"] }
+job.parallelize(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |collector|
+  ["item1", "item2", "item3"].each do |item|
+    collector.call(item)
+  end
+end
 ```
 
-The block must return an enumerable. The items are used as keys, values are set to `nil`
+The block must use the collector to feed Kraps with individual items. The
+items are used as keys and the values are set to `nil`.
 
 * `map`: Maps the key value pairs to other key value pairs
 
@@ -241,7 +251,12 @@ of searches made:
 class SearchLogCounter
   def call(start_date:, end_date:)
     count_job = Kraps::Job.new(worker: SomeBackgroundWorker)
-    count_job = count_job.parallelize(partitions: 128) { Date.parse(start_date)..Date.parse(end_date) }
+
+    count_job = count_job.parallelize(partitions: 128) do |collector|
+      (Date.parse(start_date)..Date.parse(end_date)).each do |date|
+        collector.call(date.to_s)
+      end
+    end
 
     count_job = count_job.map do |date, _, collector|
       # ...
