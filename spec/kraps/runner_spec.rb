@@ -178,21 +178,21 @@ module Kraps
              .reduce { |_key, value1, value2| value1 + value2 }
         end
 
-        runner = described_class.new(TestRunner)
-        allow(runner).to receive(:wait)
-        runner.call
+        allow_any_instance_of(described_class::StepRunner).to receive(:wait)
+
+        described_class.new(TestRunner).call
 
         expect(enqueuer).to have_received(:call)
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, action: Actions::PARALLELIZE, token: "token1", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, item: "item1"))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, action: Actions::PARALLELIZE, token: "token1", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, item: "item2"))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 0))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 1))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "2", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 2))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, action: Actions::MAP, token: "token2", part: "3", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 3))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "0", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 0))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "1", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 1))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "2", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 2))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, action: Actions::REDUCE, token: "token3", part: "3", klass: "TestRunner", args: [], kwargs: {}, partitions: 4, partition: 3))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "0", klass: "TestRunner", args: [], kwargs: {}, item: "item1"))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "1", klass: "TestRunner", args: [], kwargs: {}, item: "item2"))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", part: "0", klass: "TestRunner", args: [], kwargs: {}, partition: 0))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", part: "1", klass: "TestRunner", args: [], kwargs: {}, partition: 1))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", part: "2", klass: "TestRunner", args: [], kwargs: {}, partition: 2))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", part: "3", klass: "TestRunner", args: [], kwargs: {}, partition: 3))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", part: "0", klass: "TestRunner", args: [], kwargs: {}, partition: 0))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", part: "1", klass: "TestRunner", args: [], kwargs: {}, partition: 1))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", part: "2", klass: "TestRunner", args: [], kwargs: {}, partition: 2))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", part: "3", klass: "TestRunner", args: [], kwargs: {}, partition: 3))
       end
 
       it "stops and raises a JobStopped error when a distributed job was stopped" do

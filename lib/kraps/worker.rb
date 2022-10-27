@@ -10,11 +10,10 @@ module Kraps
     def call(retries: 3)
       return if distributed_job.stopped?
 
-      action = @args["action"]
-      raise(InvalidAction, "Invalid action #{action}") unless Actions::ALL.include?(action)
+      raise(InvalidAction, "Invalid action #{step.action}") unless Actions::ALL.include?(step.action)
 
       with_retries(retries) do # TODO: allow to use queue based retries
-        send(:"perform_#{action}")
+        send(:"perform_#{step.action}")
 
         distributed_job.done(@args["part"])
       end

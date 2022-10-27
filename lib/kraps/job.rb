@@ -10,8 +10,6 @@ module Kraps
     end
 
     def parallelize(partitions:, partitioner: MapReduce::HashPartitioner.new(partitions), worker: @worker, &block)
-      # TODO: how to avoid partitions and partitioner to run out of sync
-
       fresh.tap do |job|
         job.instance_eval do
           @partitions = partitions
