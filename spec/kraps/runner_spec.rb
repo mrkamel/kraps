@@ -212,6 +212,19 @@ module Kraps
         expect { described_class.new(TestRunner).call }.to raise_error(JobStopped, "The job was stopped")
       end
 
+      it "stops the distributed job when an interrupt exception is raised" do
+        distributed_job = Kraps.distributed_job_client.build(token: SecureRandom.hex)
+        allow(Kraps.distributed_job_client).to receive(:build).and_return(distributed_job)
+        allow(ProgressBar).to receive(:create).and_raise(Interrupt)
+
+        TestRunner.define_method(:call) do
+          Kraps::Job.new(worker: TestRunnerWorker).parallelize(partitions: 8) { |collector| collector.call("key") }
+        end
+
+        expect { described_class.new(TestRunner).call }.to raise_error(Interrupt)
+        expect(distributed_job.stopped?).to eq(true)
+      end
+
       it "shows progress bars" do
         allow(ProgressBar).to receive(:create).and_call_original
 

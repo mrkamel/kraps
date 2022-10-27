@@ -50,43 +50,43 @@ module Kraps
           @step.block.call(collector)
         end
 
-        distributed_job = Kraps.distributed_job_client.build(token: SecureRandom.hex)
+        with_distributed_job do |distributed_job|
+          push_and_wait(distributed_job, enum) do |item, part|
+            enqueue(token: distributed_job.token, part: part, item: item)
+          end
 
-        push_and_wait(distributed_job, enum) do |item, part|
-          enqueue(token: distributed_job.token, part: part, item: item)
+          Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
         end
-
-        Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
       end
 
       def perform_map
-        distributed_job = Kraps.distributed_job_client.build(token: SecureRandom.hex)
+        with_distributed_job do |distributed_job|
+          push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
+            enqueue(token: distributed_job.token, part: part, partition: partition)
+          end
 
-        push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
-          enqueue(token: distributed_job.token, part: part, partition: partition)
+          Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
         end
-
-        Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
       end
 
       def perform_reduce
-        distributed_job = Kraps.distributed_job_client.build(token: SecureRandom.hex)
+        with_distributed_job do |distributed_job|
+          push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
+            enqueue(token: distributed_job.token, part: part, partition: partition)
+          end
 
-        push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
-          enqueue(token: distributed_job.token, part: part, partition: partition)
+          Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
         end
-
-        Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
       end
 
       def perform_each_partition
-        distributed_job = Kraps.distributed_job_client.build(token: SecureRandom.hex)
+        with_distributed_job do |distributed_job|
+          push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
+            enqueue(token: distributed_job.token, part: part, partition: partition)
+          end
 
-        push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
-          enqueue(token: distributed_job.token, part: part, partition: partition)
+          @frame
         end
-
-        @frame
       end
 
       def enqueue(token:, part:, **rest)
@@ -104,6 +104,15 @@ module Kraps
             **rest
           )
         )
+      end
+
+      def with_distributed_job
+        distributed_job = Kraps.distributed_job_client.build(token: SecureRandom.hex)
+
+        yield(distributed_job)
+      rescue Interrupt
+        distributed_job&.stop
+        raise
       end
 
       def push_and_wait(distributed_job, enum, &block)
@@ -139,9 +148,6 @@ module Kraps
         end
 
         raise(JobStopped, "The job was stopped") if distributed_job.stopped?
-      rescue Interrupt
-        distributed_job&.stop
-        raise
       ensure
         progress_bar&.stop
       end
