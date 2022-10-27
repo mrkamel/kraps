@@ -112,7 +112,7 @@ module Kraps
       end
 
       def push_each(distributed_job, enum)
-        progress_bar = build_progress_bar("#{@klass}, job #{@job_index + 1}, step #{@step_index + 1}, #{@step.action}/enqueue, token #{distributed_job.token}, %a %c")
+        progress_bar = build_progress_bar("#{@klass}, job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, #{@step.action}/enqueue, token #{distributed_job.token}, %a %c")
 
         distributed_job.push_each(enum) do |item, part|
           progress_bar.total = progress_bar.progress + 2 # Always keep the progress bar going until manually stopped
@@ -125,7 +125,7 @@ module Kraps
       end
 
       def wait(distributed_job)
-        progress_bar = build_progress_bar("#{@klass}, job #{@job_index + 1}, step #{@step_index + 1}, #{@step.action}/process, token #{distributed_job.token}, %a %c/%C (%p%)")
+        progress_bar = build_progress_bar("#{@klass}, job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, #{@step.action}/process, token #{distributed_job.token}, %a %c/%C (%p%)")
 
         loop do
           total = distributed_job.total
