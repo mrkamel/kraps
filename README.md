@@ -47,7 +47,7 @@ class SearchLogCounter
 
     job = job.parallelize(partitions: 128) do |collector|
       (Date.parse(start_date)..Date.parse(end_date)).each do |date|
-        collector.call(date).to_s
+        collector.call(date.to_s)
       end
     end
 
