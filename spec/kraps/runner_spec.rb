@@ -163,7 +163,7 @@ module Kraps
         enqueuer = double
         allow(enqueuer).to receive(:call)
 
-        Kraps.configure(driver: FakeDriver, redis: RedisClient, enqueuer: enqueuer)
+        Kraps.configure(driver: FakeDriver, redis: RedisConnection, enqueuer: enqueuer)
 
         allow(SecureRandom).to receive(:hex).and_return("token1", "token2", "token3")
 
@@ -178,7 +178,7 @@ module Kraps
              .reduce { |_key, value1, value2| value1 + value2 }
         end
 
-        allow_any_instance_of(described_class::StepRunner).to receive(:wait)
+        allow_any_instance_of(DistributedJob::Job).to receive(:finished?).and_return(true)
 
         described_class.new(TestRunner).call
 
@@ -225,7 +225,7 @@ module Kraps
         expect(distributed_job.stopped?).to eq(true)
       end
 
-      it "shows progress bars" do
+      it "shows a progress bar" do
         allow(ProgressBar).to receive(:create).and_call_original
 
         TestRunner.define_method(:call) do
@@ -234,12 +234,11 @@ module Kraps
 
         described_class.new(TestRunner).call
 
-        expect(ProgressBar).to have_received(:create).with(format: /enqueue/)
-        expect(ProgressBar).to have_received(:create).with(format: /process/)
+        expect(ProgressBar).to have_received(:create)
       end
 
       it "does not show the progress when disabled" do
-        Kraps.configure(driver: FakeDriver, redis: RedisClient, show_progress: false)
+        Kraps.configure(driver: FakeDriver, redis: RedisConnection, show_progress: false)
 
         allow(ProgressBar).to receive(:create).and_call_original
 
@@ -249,8 +248,7 @@ module Kraps
 
         described_class.new(TestRunner).call
 
-        expect(ProgressBar).to have_received(:create).with(format: /enqueue/, output: ProgressBar::Outputs::Null)
-        expect(ProgressBar).to have_received(:create).with(format: /process/, output: ProgressBar::Outputs::Null)
+        expect(ProgressBar).to have_received(:create).with(hash_including(output: ProgressBar::Outputs::Null))
       end
     end
   end

@@ -124,18 +124,28 @@ Now, executing your job is super easy:
 Kraps::Runner.new(SearchLogCounter).call(start_date: '2018-01-01', end_date: '2022-01-01')
 ```
 
-This will execute all steps of your job, where all parts of a step are executed
-in parallel. How many "parts" a step has largely boils down to the number of
-partitions you specify in the job respectively steps. More concretely, As your
-data consists of `(key, value)` pairs, the number of partitions specify how
-your data gets split. Kraps assigns every `key` to a partition, either using a
-custom `partitioner` or the default built in hash partitioner. The hash
-partitioner simply calculates a hash of your key modulo the number of
-partitions and the resulting partition number is the partition where the
-respective key is assigned to.
+This will execute all steps of your job, where the parts of a step are executed
+in parallel, depending on the number of background job workers you have.
 
-A partitioner is a callable which gets the key as argument and returns a
-partition number. The built in hash partitioner looks similar to this one:
+The runner by default also shows the progress of the execution:
+
+```
+SearchLogCounter: job 1/1, step 1/4, token 2407e38eb58233ae3cecaec86fa6a6ec, Time: 00:00:05, 356/356 (100%) => parallelize
+SearchLogCounter: job 1/1, step 2/4, token 7f11a04c754389359f67c1e7627468c6, Time: 00:08:00, 128/128 (100%) => map
+SearchLogCounter: job 1/1, step 3/4, token b602198bfeab20ff205a00af36e43402, Time: 00:03:00, 128/128 (100%) => reduce
+SearchLogCounter: job 1/1, step 4/4, token d18acbb22bbd30faff7265c179d4ec5a, Time: 00:02:00, 128/128 (100%) => each_partition
+```
+
+How many "parts" a step has mostly boils down to the number of partitions you
+specify in the job respectively steps. More concretely, As your data consists
+of `(key, value)` pairs, the number of partitions specifies how your data gets
+split. Kraps assigns every `key` to a partition, either using a custom
+`partitioner` or the default built in hash partitioner. The hash partitioner
+simply calculates a hash of your key modulo the number of partitions and the
+resulting partition number is the partition where the respective key is
+assigned to. A partitioner is a callable which gets the key as argument and
+returns a partition number. The built in hash partitioner looks similar to this
+one:
 
 ```ruby
 partitioner = proc { |key| Digest::SHA1.hexdigest(key.inspect)[0..4].to_i(16) % 128 } # 128 partitions

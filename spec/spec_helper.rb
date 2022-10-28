@@ -1,7 +1,7 @@
 require "kraps"
 
 FakeDriver = Kraps::Drivers::FakeDriver.new(bucket: "bucket", prefix: "prefix")
-RedisClient = Redis.new
+RedisConnection = Redis.new
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -15,11 +15,11 @@ RSpec.configure do |config|
   end
 
   config.before do
-    Kraps.configure(driver: FakeDriver, redis: RedisClient)
+    Kraps.configure(driver: FakeDriver, redis: RedisConnection)
   end
 
   config.after do
     FakeDriver.driver.flush
-    RedisClient.flushdb
+    RedisConnection.flushdb
   end
 end

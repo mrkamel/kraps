@@ -115,32 +115,29 @@ module Kraps
         raise
       end
 
-      def push_and_wait(distributed_job, enum, &block)
-        push_each(distributed_job, enum, &block)
-        wait(distributed_job)
-      end
+      def push_and_wait(distributed_job, enum)
+        progress_bar = build_progress_bar("#{@klass}: job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, token #{distributed_job.token}, %a, %c/%C (%p%) => #{@step.action}")
 
-      def push_each(distributed_job, enum)
-        progress_bar = build_progress_bar("#{@klass}, job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, #{@step.action}/enqueue, token #{distributed_job.token}, %a %c")
+        begin
+          total = 0
 
-        distributed_job.push_each(enum) do |item, part|
-          progress_bar.total = progress_bar.progress + 2 # Always keep the progress bar going until manually stopped
-          progress_bar.progress = progress_bar.progress + 1
+          interval = Interval.new(1) do
+            progress_bar.total = total
+          end
 
-          yield(item, part)
+          distributed_job.push_each(enum) do |item, part|
+            total += 1
+            interval.fire(timeout: 1)
+
+            yield(item, part)
+          end
+        ensure
+          interval&.stop
         end
-      ensure
-        progress_bar&.stop
-      end
-
-      def wait(distributed_job)
-        progress_bar = build_progress_bar("#{@klass}, job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, #{@step.action}/process, token #{distributed_job.token}, %a %c/%C (%p%)")
 
         loop do
-          total = distributed_job.total
-
-          progress_bar.total = total
-          progress_bar.progress = [total, total - distributed_job.count].min
+          progress_bar.total = distributed_job.total
+          progress_bar.progress = progress_bar.total - distributed_job.count
 
           break if distributed_job.finished? || distributed_job.stopped?
 
@@ -153,7 +150,10 @@ module Kraps
       end
 
       def build_progress_bar(format)
-        Kraps.show_progress? ? ProgressBar.create(format: format) : ProgressBar.create(format: format, output: ProgressBar::Outputs::Null)
+        options = { format: format, total: 0, autofinish: false }
+        options[:output] = ProgressBar::Outputs::Null unless Kraps.show_progress?
+
+        ProgressBar.create(options)
       end
     end
   end
