@@ -150,7 +150,7 @@ module Kraps
       end
 
       def build_progress_bar(format)
-        options = { format: format, total: 0, autofinish: false }
+        options = { format: format, total: 1, autofinish: false }
         options[:output] = ProgressBar::Outputs::Null unless Kraps.show_progress?
 
         ProgressBar.create(options)
