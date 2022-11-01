@@ -31,8 +31,12 @@ module Kraps
       mapper = MapReduce::Mapper.new(implementation.new, partitioner: partitioner, memory_limit: @memory_limit)
       mapper.map(@args["item"])
 
-      mapper.shuffle do |partition, tempfile| # TODO: upload in parallel
-        Kraps.driver.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), tempfile, Kraps.driver.bucket)
+      mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
+        Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
+          File.open(path) do |stream|
+            Kraps.driver.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream, Kraps.driver.bucket)
+          end
+        end
       end
     end
 
@@ -68,10 +72,14 @@ module Kraps
         end
       end
 
-      mapper.shuffle do |partition, tempfile| # TODO: upload in parallel
-        Kraps.driver.driver.store(
-          Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), tempfile, Kraps.driver.bucket
-        )
+      mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
+        Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
+          File.open(path) do |stream|
+            Kraps.driver.driver.store(
+              Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream, Kraps.driver.bucket
+            )
+          end
+        end
       end
     ensure
       temp_paths&.unlink

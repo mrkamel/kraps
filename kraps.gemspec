@@ -29,7 +29,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "attachie"
   spec.add_dependency "distributed_job"
-  spec.add_dependency "map-reduce-ruby", ">= 2.1.1"
+  spec.add_dependency "map-reduce-ruby", ">= 3.0.0"
   spec.add_dependency "redis"
   spec.add_dependency "ruby-progressbar"
 

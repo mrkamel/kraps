@@ -407,7 +407,7 @@ module Kraps
         concurrency: 4
       ).call
 
-      expect(Parallelizer).to have_received(:each).with(anything, 4)
+      expect(Parallelizer).to have_received(:each).with(anything, 4).exactly(2).times
     end
   end
 end
