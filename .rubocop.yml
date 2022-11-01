@@ -77,3 +77,6 @@ Lint/EmptyClass:
 
 Style/WordArray:
   Enabled: false
+
+Style/RedundantEach:
+  Enabled: false
