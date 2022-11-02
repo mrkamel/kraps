@@ -143,17 +143,18 @@ split. Kraps assigns every `key` to a partition, either using a custom
 `partitioner` or the default built in hash partitioner. The hash partitioner
 simply calculates a hash of your key modulo the number of partitions and the
 resulting partition number is the partition where the respective key is
-assigned to. A partitioner is a callable which gets the key as argument and
-returns a partition number. The built in hash partitioner looks similar to this
-one:
+assigned to. A partitioner is a callable which gets the key and the number of
+partitions as argument and returns a partition number. The built in hash
+partitioner looks similar to this one:
 
 ```ruby
-partitioner = proc { |key| Digest::SHA1.hexdigest(key.inspect)[0..4].to_i(16) % 128 } # 128 partitions
+partitioner = proc { |key, num_partitions| Digest::SHA1.hexdigest(key.inspect)[0..4].to_i(16) % num_partitions }
 ```
 
 Please note, it's important that the partitioner and the specified number of
 partitions stays in sync. When you use a custom partitioner, please make sure
-that the partitioner operates on the same number of partitions you specify.
+that the partitioner correctly returns a partition number in the range of
+`0...num_partitions`.
 
 ## Datatypes
 

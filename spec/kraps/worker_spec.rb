@@ -212,6 +212,31 @@ module Kraps
       expect(passed_kwargs).to eq(kwarg1: "value1", kwarg2: "value2")
     end
 
+    it "passes the right number of partitions to the partitioner" do
+      TestWorker.define_method(:call) do
+        Job.new(worker: TestWorker)
+           .parallelize(partitions: 4, partitioner: proc { |key, num_partitions| [key, num_partitions] }) {}
+           .map(partitions: 8) { raise("error") }
+      end
+
+      worker = build_worker(
+        args: {
+          token: distributed_job.token,
+          part: "0",
+          action: Actions::MAP,
+          frame: { token: "previous_token", partitions: 4 },
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 0,
+          step_index: 1,
+          partition: 0
+        }
+      )
+
+      expect(worker.send(:partitioner).call("key")).to eq(["key", 8])
+    end
+
     it "retries for the specified amount of times" do
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)
