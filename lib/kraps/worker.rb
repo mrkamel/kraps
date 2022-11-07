@@ -181,7 +181,7 @@ module Kraps
     end
 
     def partitioner
-      @partitioner ||= step.args[:partitioner]
+      @partitioner ||= proc { |key| step.args[:partitioner].call(key, step.args[:partitions]) }
     end
 
     def distributed_job

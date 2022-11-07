@@ -13,7 +13,7 @@ module Kraps
         job = job.parallelize(partitions: 8, &block)
 
         expect(job.steps).to match(
-          [an_object_having_attributes(action: Actions::PARALLELIZE, args: { partitions: 8, partitioner: kind_of(MapReduce::HashPartitioner), worker: TestJobWorker1 }, block: block)]
+          [an_object_having_attributes(action: Actions::PARALLELIZE, args: { partitions: 8, partitioner: kind_of(HashPartitioner), worker: TestJobWorker1 }, block: block)]
         )
       end
 
@@ -45,7 +45,7 @@ module Kraps
         expect(job.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
-            an_object_having_attributes(action: Actions::MAP, args: { partitions: 8, partitioner: kind_of(MapReduce::HashPartitioner), worker: TestJobWorker1 }, block: block)
+            an_object_having_attributes(action: Actions::MAP, args: { partitions: 8, partitioner: kind_of(HashPartitioner), worker: TestJobWorker1 }, block: block)
           ]
         )
       end
@@ -80,7 +80,7 @@ module Kraps
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
             an_object_having_attributes(action: Actions::MAP),
-            an_object_having_attributes(action: Actions::REDUCE, args: { partitions: 8, partitioner: kind_of(MapReduce::HashPartitioner), worker: TestJobWorker1 }, block: block)
+            an_object_having_attributes(action: Actions::REDUCE, args: { partitions: 8, partitioner: kind_of(HashPartitioner), worker: TestJobWorker1 }, block: block)
           ]
         )
       end
@@ -95,7 +95,7 @@ module Kraps
         expect(job.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
-            an_object_having_attributes(action: Actions::MAP, args: { partitions: 16, partitioner: kind_of(MapReduce::HashPartitioner), worker: TestJobWorker1 }, block: kind_of(Proc))
+            an_object_having_attributes(action: Actions::MAP, args: { partitions: 16, partitioner: kind_of(HashPartitioner), worker: TestJobWorker1 }, block: kind_of(Proc))
           ]
         )
 
@@ -132,7 +132,7 @@ module Kraps
         expect(job.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
-            an_object_having_attributes(action: Actions::EACH_PARTITION, args: { partitions: 8, partitioner: kind_of(MapReduce::HashPartitioner), worker: TestJobWorker1 }, block: kind_of(Proc))
+            an_object_having_attributes(action: Actions::EACH_PARTITION, args: { partitions: 8, partitioner: kind_of(HashPartitioner), worker: TestJobWorker1 }, block: kind_of(Proc))
           ]
         )
       end
@@ -145,7 +145,7 @@ module Kraps
         expect(job.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
-            an_object_having_attributes(action: Actions::EACH_PARTITION, args: { partitions: 8, partitioner: kind_of(MapReduce::HashPartitioner), worker: TestJobWorker2 }, block: kind_of(Proc))
+            an_object_having_attributes(action: Actions::EACH_PARTITION, args: { partitions: 8, partitioner: kind_of(HashPartitioner), worker: TestJobWorker2 }, block: kind_of(Proc))
           ]
         )
       end

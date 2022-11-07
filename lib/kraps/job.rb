@@ -6,10 +6,10 @@ module Kraps
       @worker = worker
       @steps = []
       @partitions = 0
-      @partitioner = MapReduce::HashPartitioner.new(@partitions)
+      @partitioner = HashPartitioner.new
     end
 
-    def parallelize(partitions:, partitioner: MapReduce::HashPartitioner.new(partitions), worker: @worker, &block)
+    def parallelize(partitions:, partitioner: HashPartitioner.new, worker: @worker, &block)
       fresh.tap do |job|
         job.instance_eval do
           @partitions = partitions
@@ -24,7 +24,7 @@ module Kraps
       fresh.tap do |job|
         job.instance_eval do
           @partitions = partitions if partitions
-          @partitioner = partitioner || MapReduce::HashPartitioner.new(partitions) if partitioner || partitions
+          @partitioner = partitioner if partitioner
 
           @steps << Step.new(action: Actions::MAP, args: { partitions: @partitions, partitioner: @partitioner, worker: worker }, block: block)
         end
