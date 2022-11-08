@@ -95,28 +95,38 @@ class MyKrapsWorker
   include Sidekiq::Worker
 
   def perform(json)
-    Kraps::Worker.new(json, memory_limit: 128.megabytes, chunk_limit: 64, concurrency: 8).call(retries: 3)
+    Kraps::Worker.new(json, memory_limit: 16.megabytes, chunk_limit: 64, concurrency: 8).call(retries: 3)
   end
 end
 ```
 
 The `json` argument is automatically enqueued by Kraps and contains everything
 it needs to know about the job and step to execute. The `memory_limit` tells
-Kraps how much memory it is allowed to allocate for temporary chunks, etc. This
-value depends on the memory size of your container/server and how much worker
-threads your background queue spawns. Let's say your container/server has 2
-gigabytes of memory and your background framework spawns 5 threads.
-Theoretically, you might be able to give 300-400 megabytes to Kraps then. The
-`chunk_limit` ensures that only the specified amount of chunks are processed in
-a single run. A run basically means: it takes up to `chunk_limit` chunks,
-reduces them and pushes the result as a new chunk to the list of chunks to
-process. Thus, if your number of file descriptors is unlimited, you want to set
-it to a higher number to avoid the overhead of multiple runs. `concurrency`
-tells Kraps how much threads to use to concurrently upload/download files from
-the storage layer. Finally, `retries` specifies how often Kraps should retry
-the job step in case of errors. Kraps will sleep for 5 seconds between those
-retries. Please note that it's not yet possible to use the retry mechanism of
-your background job framework with Kraps.
+Kraps how much memory it is allowed to allocate for temporary chunks. More
+concretely, it tells Kraps how big the file size of a temporary chunk can grow
+in memory up until Kraps must write it to disk. However, ruby of course
+allocates much more memory for a chunk than the raw file size of the chunk. As
+a rule of thumb, it allocates 10 times more memory. Still, choosing a value for
+`memory_size` depends on the memory size of your container/server, how much
+worker threads your background queue spawns and how much memory your workers
+need besides of Kraps. Let's say your container/server has 2 gigabytes of
+memory and your background framework spawns 5 threads. Theoretically, you might
+be able to give 300-400 megabytes to Kraps then, but now divide this by 10 and
+specify a `memory_limit` of around `30.megabytes`, better less. The
+`memory_limit` affects how much chunks will be written to disk depending on the
+data size you are processing and how big these chunks are. The smaller the
+value, the more chunks and the more chunks, the more runs Kraps need to merge
+the chunks. It can affect the performance The `chunk_limit` ensures that only
+the specified amount of chunks are processed in a single run. A run basically
+means: it takes up to `chunk_limit` chunks, reduces them and pushes the result
+as a new chunk to the list of chunks to process. Thus, if your number of file
+descriptors is unlimited, you want to set it to a higher number to avoid the
+overhead of multiple runs. `concurrency` tells Kraps how much threads to use to
+concurrently upload/download files from the storage layer.  Finally, `retries`
+specifies how often Kraps should retry the job step in case of errors. Kraps
+will sleep for 5 seconds between those retries. Please note that it's not yet
+possible to use the retry mechanism of your background job framework with
+Kraps.
 
 Now, executing your job is super easy:
 
