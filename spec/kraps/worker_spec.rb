@@ -85,6 +85,64 @@ module Kraps
       )
     end
 
+    it "executes the specified map action and reduces already when the next step is a reduce step" do
+      TestWorker.define_method(:call) do
+        job = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
+
+        job = job.map do |key, _, collector|
+          collector.call(key + "a", 1)
+          collector.call(key + "b", 1)
+          collector.call(key + "a", 1)
+          collector.call(key + "b", 1)
+          collector.call(key + "c", 1)
+        end
+
+        job.reduce do |_, value1, value2|
+          value1 + value2
+        end
+      end
+
+      chunk1 = [
+        JSON.generate(["item1", nil]),
+        JSON.generate(["item2", nil])
+      ].join("\n")
+
+      chunk2 = [
+        JSON.generate(["item3", nil])
+      ].join("\n")
+
+      Kraps.driver.driver.store("prefix/previous_token/0/chunk.0.json", chunk1, Kraps.driver.bucket)
+      Kraps.driver.driver.store("prefix/previous_token/0/chunk.1.json", chunk2, Kraps.driver.bucket)
+
+      build_worker(
+        args: {
+          token: distributed_job.token,
+          part: "0",
+          action: Actions::MAP,
+          frame: { token: "previous_token", partitions: 4 },
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 0,
+          step_index: 1,
+          partition: 0
+        }
+      ).call
+
+      expect(Kraps.driver.driver.list(Kraps.driver.bucket).to_a).to eq(
+        ["prefix/previous_token/0/chunk.0.json", "prefix/previous_token/0/chunk.1.json", "prefix/token/0/chunk.0.json", "prefix/token/1/chunk.0.json", "prefix/token/3/chunk.0.json"]
+      )
+      expect(Kraps.driver.driver.value("prefix/token/0/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item1a", 2]), JSON.generate(["item1b", 2]), JSON.generate(["item3c", 1])].join("\n")
+      )
+      expect(Kraps.driver.driver.value("prefix/token/1/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item1c", 1]), JSON.generate(["item2a", 2]), JSON.generate(["item2c", 1]), JSON.generate(["item3a", 2])].join("\n")
+      )
+      expect(Kraps.driver.driver.value("prefix/token/3/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item2b", 2]), JSON.generate(["item3b", 2])].join("\n")
+      )
+    end
+
     it "executes the specified reduce action" do
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)

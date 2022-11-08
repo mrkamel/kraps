@@ -60,6 +60,14 @@ module Kraps
         current_step.block.call(key, value, block)
       end
 
+      subsequent_step = next_step
+
+      if subsequent_step&.action == Actions::REDUCE
+        implementation.define_singleton_method(:reduce) do |key, value1, value2|
+          subsequent_step.block.call(key, value1, value2)
+        end
+      end
+
       mapper = MapReduce::Mapper.new(implementation, partitioner: partitioner, memory_limit: @memory_limit)
 
       temp_paths.each do |temp_path|
@@ -178,6 +186,10 @@ module Kraps
 
         steps[step_index] || raise(InvalidStep, "Can't find step #{step_index}")
       end
+    end
+
+    def next_step
+      @next_step ||= steps[@args["step_index"] + 1]
     end
 
     def partitioner
