@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    kraps (0.3.0)
+    kraps (0.4.0)
       attachie
       distributed_job
       map-reduce-ruby (>= 3.0.0)

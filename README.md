@@ -122,11 +122,14 @@ means: it takes up to `chunk_limit` chunks, reduces them and pushes the result
 as a new chunk to the list of chunks to process. Thus, if your number of file
 descriptors is unlimited, you want to set it to a higher number to avoid the
 overhead of multiple runs. `concurrency` tells Kraps how much threads to use to
-concurrently upload/download files from the storage layer.  Finally, `retries`
+concurrently upload/download files from the storage layer. Finally, `retries`
 specifies how often Kraps should retry the job step in case of errors. Kraps
 will sleep for 5 seconds between those retries. Please note that it's not yet
 possible to use the retry mechanism of your background job framework with
-Kraps.
+Kraps. Please note, however, that `parallelize` is not covered by `retries`
+yet, as the block passed to `parallelize` is executed by the runner, not the
+workers.
+
 
 Now, executing your job is super easy:
 

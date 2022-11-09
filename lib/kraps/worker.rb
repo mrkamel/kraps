@@ -151,14 +151,15 @@ module Kraps
         yield
       rescue Kraps::Error
         distributed_job.stop
+        raise
       rescue StandardError
-        sleep(5)
-        retries += 1
-
         if retries >= num_retries
           distributed_job.stop
           raise
         end
+
+        sleep(5)
+        retries += 1
 
         retry
       end
