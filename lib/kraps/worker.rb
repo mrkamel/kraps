@@ -13,6 +13,8 @@ module Kraps
       raise(InvalidAction, "Invalid action #{step.action}") unless Actions::ALL.include?(step.action)
 
       with_retries(retries) do # TODO: allow to use queue based retries
+        step.before&.call
+
         send(:"perform_#{step.action}")
 
         distributed_job.done(@args["part"])
@@ -194,7 +196,7 @@ module Kraps
     end
 
     def partitioner
-      @partitioner ||= proc { |key| step.args[:partitioner].call(key, step.args[:partitions]) }
+      @partitioner ||= proc { |key| step.partitioner.call(key, step.partitions) }
     end
 
     def distributed_job

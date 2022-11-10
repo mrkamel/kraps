@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.5.0
+
+* Added a `before` option to specify a callable to run before
+  a step to e.g. populate caches upfront, etc.
+
 ## v0.4.0
 
 * Pre-reduce in a map step when the subsequent step is a

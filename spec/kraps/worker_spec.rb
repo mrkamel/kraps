@@ -8,6 +8,31 @@ module Kraps
 
     let(:distributed_job) { Kraps.distributed_job_client.build(token: "token") }
 
+    it "executes the specified before block" do
+      before_called = false
+      before = -> { before_called = true }
+
+      TestWorker.define_method(:call) do
+        Job.new(worker: TestWorker).parallelize(partitions: 8, before: before) {}
+      end
+
+      build_worker(
+        args: {
+          token: distributed_job.token,
+          part: "0",
+          action: Actions::PARALLELIZE,
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 0,
+          step_index: 0,
+          item: "item1"
+        }
+      ).call
+
+      expect(before_called).to eq(true)
+    end
+
     it "executes the specified parallelize action" do
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker).parallelize(partitions: 8) do |collector|
