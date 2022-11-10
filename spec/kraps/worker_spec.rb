@@ -388,19 +388,28 @@ module Kraps
 
         job1 = job1.map do |_, _, collector|
           collector.call("key1", 1)
-          collector.call("key2", 2)
-          collector.call("key3", 3)
+          collector.call("key2", 1)
+          collector.call("key3", 2)
+          collector.call("key5", 3)
+          collector.call("key7", 4)
         end
 
         job2 = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
 
         job2 = job2.map do |_, _, collector|
-          collector.call("key1", 3)
-          collector.call("key2", 2)
+          collector.call("key0", 1)
+          collector.call("key1", 1)
+          collector.call("key1", 1)
           collector.call("key3", 1)
+          collector.call("key3", 1)
+          collector.call("key4", 1)
+          collector.call("key5", 1)
+          collector.call("key5", 1)
         end
 
-        job2.combine(job1) { |_, value1, value2| (value1 || 0) + (value2 || 0) }
+        job2.combine(job1) do |_, value1, value2|
+          (value1 || 0) + (value2 || 0)
+        end
       end
 
       chunk1 = [
@@ -410,20 +419,25 @@ module Kraps
 
       chunk2 = [
         JSON.generate(["key3", 3]),
-        JSON.generate(["key4", 4])
+        JSON.generate(["key5", 5]),
+        JSON.generate(["key7", 7])
       ].join("\n")
 
       Kraps.driver.driver.store("prefix/combine_token/0/chunk.0.json", chunk1, Kraps.driver.bucket)
       Kraps.driver.driver.store("prefix/combine_token/0/chunk.1.json", chunk2, Kraps.driver.bucket)
 
       chunk3 = [
-        JSON.generate(["key0", 0]),
-        JSON.generate(["key1", 3]),
-        JSON.generate(["key2", 2])
+        JSON.generate(["key0", 1]),
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key3", 1]),
+        JSON.generate(["key3", 1])
       ].join("\n")
 
       chunk4 = [
-        JSON.generate(["key3", 1])
+        JSON.generate(["key4", 1]),
+        JSON.generate(["key5", 1]),
+        JSON.generate(["key5", 2])
       ].join("\n")
 
       Kraps.driver.driver.store("prefix/previous_token/0/chunk.0.json", chunk3, Kraps.driver.bucket)
@@ -451,15 +465,19 @@ module Kraps
           "prefix/combine_token/0/chunk.1.json",
           "prefix/previous_token/0/chunk.0.json",
           "prefix/previous_token/0/chunk.1.json",
+          "prefix/token/0/chunk.0.json",
           "prefix/token/1/chunk.0.json",
           "prefix/token/2/chunk.0.json"
         ]
       )
+      expect(Kraps.driver.driver.value("prefix/token/0/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["key5", 6]), JSON.generate(["key5", 7])].join("\n")
+      )
       expect(Kraps.driver.driver.value("prefix/token/1/chunk.0.json", Kraps.driver.bucket).strip).to eq(
-        [JSON.generate(["key0", 0]), JSON.generate(["key1", 4]), JSON.generate(["key4", 4])].join("\n")
+        [JSON.generate(["key0", 1]), JSON.generate(["key1", 2]), JSON.generate(["key1", 2]), JSON.generate(["key4", 1])].join("\n")
       )
       expect(Kraps.driver.driver.value("prefix/token/2/chunk.0.json", Kraps.driver.bucket).strip).to eq(
-        [JSON.generate(["key2", 4]), JSON.generate(["key3", 4])].join("\n")
+        [JSON.generate(["key3", 4]), JSON.generate(["key3", 4])].join("\n")
       )
     end
 

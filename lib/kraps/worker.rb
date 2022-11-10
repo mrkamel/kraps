@@ -186,19 +186,22 @@ module Kraps
 
       loop do
         return if current1.nil? && current2.nil?
+        return if current1.nil?
 
-        if current1.nil?
-          yield(current2[0], nil, current2[1])
-
-          current2 = begin; enum2.next; rescue StopIteration; nil; end
-        elsif current2.nil?
+        if current2.nil?
           yield(current1[0], current1[1], nil)
 
           current1 = begin; enum2.next; rescue StopIteration; nil; end
         elsif current1[0] == current2[0]
-          yield(current1[0], current1[1], current2[1])
+          loop do
+            yield(current1[0], current1[1], current2[1])
 
-          current1 = begin; enum1.next; rescue StopIteration; nil; end
+            current1 = begin; enum1.next; rescue StopIteration; nil; end
+
+            break if current1.nil?
+            break if current1[0] != current2[0]
+          end
+
           current2 = begin; enum2.next; rescue StopIteration; nil; end
         else
           res = current1[0] <=> current2[0]
@@ -208,8 +211,6 @@ module Kraps
 
             current1 = begin; enum1.next; rescue StopIteration; nil; end
           else
-            yield(current2[0], nil, current2[1])
-
             current2 = begin; enum2.next; rescue StopIteration; nil; end
           end
         end

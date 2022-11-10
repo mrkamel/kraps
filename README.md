@@ -258,7 +258,11 @@ The `key` itself is also passed to the block for the case that you need to
 customize the reduce calculation according to the value of the key. However,
 most of the time, this is not neccessary and the key can simply be ignored.
 
-* `combine`: Combines the results of 2 jobs
+* `combine`: Combines the results of 2 jobs by combining every key available
+  in the current job result with the corresponding key from the passed job
+  result. When the passed job result does not have the corresponding key,
+  `nil` will be passed to the block. Keys which are only available in the
+  passed job result are completely omitted.
 
 ```ruby
   job.combine(other_job, worker: MyKrapsWorker) do |key, value1, value2|
@@ -266,11 +270,11 @@ most of the time, this is not neccessary and the key can simply be ignored.
   end
 ```
 
-Please note that the partitioners and the number of partitions must match for
-the jobs to be combined. Further note that the results must be reduced, meaning
-that every key must be unique. Finally, the passed job must not neccessarily be
-listed in the array of jobs returned by the `call` method, since Kraps detects
-the dependency on its own.
+Please note that the keys, partitioners and the number of partitions must match
+for the jobs to be combined. Further note that the results of `other_job` must
+be reduced, meaning that every key must be unique. Finally, `other_job` must
+not neccessarily be listed in the array of jobs returned by the `call` method,
+since Kraps detects the dependency on its own.
 
 * `repartition`: Used to change the partitioning
 
