@@ -45,17 +45,7 @@ module Kraps
     end
 
     def perform_map
-      temp_paths = TempPaths.new
-
-      files = Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")).sort
-
-      temp_paths_index = files.each_with_object({}) do |file, hash|
-        hash[file] = temp_paths.add
-      end
-
-      Parallelizer.each(files, @concurrency) do |file|
-        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
-      end
+      temp_paths = download_all(token: @args["frame"]["token"], partition: @args["partition"])
 
       current_step = step
 
@@ -98,17 +88,7 @@ module Kraps
     end
 
     def perform_map_partitions
-      temp_paths = TempPaths.new
-
-      files = Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")).sort
-
-      temp_paths_index = files.each_with_object({}) do |file, hash|
-        hash[file] = temp_paths.add
-      end
-
-      Parallelizer.each(files, @concurrency) do |file|
-        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
-      end
+      temp_paths = download_all(token: @args["frame"]["token"], partition: @args["partition"])
 
       current_step = step
 
@@ -166,6 +146,76 @@ module Kraps
       tempfile&.close(true)
     end
 
+    def perform_combine
+      temp_paths1 = download_all(token: @args["frame"]["token"], partition: @args["partition"])
+      temp_paths2 = download_all(token: @args["combine_frame"]["token"], partition: @args["partition"])
+
+      enum1 = k_way_merge(temp_paths1.each.to_a, chunk_limit: @chunk_limit)
+      enum2 = k_way_merge(temp_paths2.each.to_a, chunk_limit: @chunk_limit)
+
+      combine_method = method(:combine)
+      current_step = step
+
+      implementation = Object.new
+      implementation.define_singleton_method(:map) do |&block|
+        combine_method.call(enum1, enum2) do |key, value1, value2|
+          block.call(key, current_step.block.call(key, value1, value2))
+        end
+      end
+
+      mapper = MapReduce::Mapper.new(implementation, partitioner: partitioner, memory_limit: @memory_limit)
+      mapper.map
+
+      mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
+        Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
+          File.open(path) do |stream|
+            Kraps.driver.driver.store(
+              Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream, Kraps.driver.bucket
+            )
+          end
+        end
+      end
+    ensure
+      temp_paths1&.delete
+      temp_paths2&.delete
+    end
+
+    def combine(enum1, enum2)
+      current1 = begin; enum1.next; rescue StopIteration; nil; end
+      current2 = begin; enum2.next; rescue StopIteration; nil; end
+
+      loop do
+        return if current1.nil? && current2.nil?
+
+        if current1.nil?
+          yield(current2[0], nil, current2[1])
+
+          current2 = begin; enum2.next; rescue StopIteration; nil; end
+        elsif current2.nil?
+          yield(current1[0], current1[1], nil)
+
+          current1 = begin; enum2.next; rescue StopIteration; nil; end
+        elsif current1[0] == current2[0]
+          yield(current1[0], current1[1], current2[1])
+
+          current1 = begin; enum1.next; rescue StopIteration; nil; end
+          current2 = begin; enum2.next; rescue StopIteration; nil; end
+        else
+          res = current1[0] <=> current2[0]
+
+          if res < 0
+            yield(current1[0], current1[1], nil)
+
+            current1 = begin; enum1.next; rescue StopIteration; nil; end
+          else
+            yield(current2[0], nil, current2[1])
+
+            current2 = begin; enum2.next; rescue StopIteration; nil; end
+          end
+        end
+      end
+    end
+
     def perform_each_partition
       temp_paths = TempPaths.new
 
@@ -205,8 +255,24 @@ module Kraps
       end
     end
 
+    def download_all(token:, partition:)
+      temp_paths = TempPaths.new
+
+      files = Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{token}/#{partition}/")).sort
+
+      temp_paths_index = files.each_with_object({}) do |file, hash|
+        hash[file] = temp_paths.add
+      end
+
+      Parallelizer.each(files, @concurrency) do |file|
+        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
+      end
+
+      temp_paths
+    end
+
     def jobs
-      @jobs ||= Array(@args["klass"].constantize.new.call(*@args["args"], **@args["kwargs"].transform_keys(&:to_sym)))
+      @jobs ||= JobResolver.new.call(@args["klass"].constantize.new.call(*@args["args"], **@args["kwargs"].transform_keys(&:to_sym)))
     end
 
     def job

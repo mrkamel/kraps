@@ -14,6 +14,7 @@ require_relative "kraps/temp_paths"
 require_relative "kraps/timeout_queue"
 require_relative "kraps/interval"
 require_relative "kraps/job"
+require_relative "kraps/job_resolver"
 require_relative "kraps/runner"
 require_relative "kraps/step"
 require_relative "kraps/frame"
@@ -24,6 +25,7 @@ module Kraps
   class InvalidAction < Error; end
   class InvalidStep < Error; end
   class JobStopped < Error; end
+  class IncompatibleFrame < Error; end
 
   def self.configure(driver:, redis: Redis.new, namespace: nil, job_ttl: 24 * 60 * 60, show_progress: true, enqueuer: ->(worker, json) { worker.perform_async(json) })
     @driver = driver

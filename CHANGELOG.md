@@ -3,6 +3,7 @@
 ## v0.6.0
 
 * Added `map_partitions`
+* Added `combine`
 
 ## v0.5.0
 

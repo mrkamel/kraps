@@ -78,6 +78,23 @@ module Kraps
       end
     end
 
+    def combine(other_job, worker: @worker, before: nil, &block)
+      fresh.tap do |job|
+        job.instance_eval do
+          @steps << Step.new(
+            action: Actions::COMBINE,
+            partitions: @partitions,
+            partitioner: @partitioner,
+            worker: worker,
+            before: before,
+            block: block,
+            dependency: other_job,
+            options: { combine_step_index: other_job.steps.size - 1 }
+          )
+        end
+      end
+    end
+
     def each_partition(worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do

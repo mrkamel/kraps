@@ -175,14 +175,14 @@ module Kraps
         )
       end
 
-      it "respects the passed before" do
+      it "respects the passed worker and before" do
         block = ->(_key, value1, value2) { value1 + value2 }
         before = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
         job = job.map { |key, value, collector| collector.call(key, value) }
-        job = job.reduce(before: before, &block)
+        job = job.reduce(before: before, worker: TestJobWorker2, &block)
 
         expect(job.steps).to match(
           [
@@ -192,7 +192,84 @@ module Kraps
               action: Actions::REDUCE,
               partitions: 8,
               partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker2,
+              before: before,
+              block: block
+            )
+          ]
+        )
+      end
+    end
+
+    describe "#combine" do
+      it "adds a corresponding step" do
+        block = ->(value1, value2) { (value1 || 0) + (value2 || 0) }
+
+        job1 = described_class.new(worker: TestJobWorker1)
+        job1 = job1.parallelize(partitions: 8) do |collector|
+          collector.call("key1", 1)
+          collector.call("key2", 2)
+          collector.call("key3", 3)
+        end
+        job1 = job1.map do |key, value, collector|
+          collector.call(key, value + 1)
+        end
+
+        job2 = described_class.new(worker: TestJobWorker1)
+        job2 = job2.parallelize(partitions: 8) do |collector|
+          collector.call("key1", 3)
+          collector.call("key2", 2)
+          collector.call("key3", 1)
+        end
+        job2 = job2.combine(job1, &block)
+
+        expect(job2.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::COMBINE,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
               worker: TestJobWorker1,
+              before: nil,
+              block: block,
+              dependency: job1,
+              options: { combine_step_index: 1 }
+            )
+          ]
+        )
+      end
+
+      it "respects the passed worker and before" do
+        block = -> {}
+        before = -> {}
+
+        job1 = described_class.new(worker: TestJobWorker1)
+        job1 = job1.parallelize(partitions: 8) do |collector|
+          collector.call("key1", 1)
+          collector.call("key2", 2)
+          collector.call("key3", 3)
+        end
+        job1 = job1.map do |key, value, collector|
+          collector.call(key, value + 1)
+        end
+
+        job2 = described_class.new(worker: TestJobWorker1)
+        job2 = job2.parallelize(partitions: 8) do |collector|
+          collector.call("key1", 3)
+          collector.call("key2", 2)
+          collector.call("key3", 1)
+        end
+        job2 = job2.combine(job1, worker: TestJobWorker2, before: before, &block)
+
+        expect(job2.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::COMBINE,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker2,
               before: before,
               block: block
             )

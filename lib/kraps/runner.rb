@@ -5,7 +5,7 @@ module Kraps
     end
 
     def call(*args, **kwargs)
-      Array(@klass.new.call(*args, **kwargs)).tap do |jobs|
+      JobResolver.new.call(@klass.new.call(*args, **kwargs)).tap do |jobs|
         jobs.each_with_index do |job, job_index|
           job.steps.each_with_index.inject(nil) do |frame, (_, step_index)|
             StepRunner.new(
@@ -83,6 +83,21 @@ module Kraps
         with_distributed_job do |distributed_job|
           push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
             enqueue(token: distributed_job.token, part: part, partition: partition)
+          end
+
+          Frame.new(token: distributed_job.token, partitions: @step.partitions)
+        end
+      end
+
+      def perform_combine
+        combine_job = @step.dependency
+        combine_step = combine_job.steps[@step.options[:combine_step_index]]
+
+        raise(IncompatibleFrame, "Incompatible number of partitions") if combine_step.partitions != @step.partitions
+
+        with_distributed_job do |distributed_job|
+          push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
+            enqueue(token: distributed_job.token, part: part, partition: partition, combine_frame: combine_step.frame.to_h)
           end
 
           Frame.new(token: distributed_job.token, partitions: @step.partitions)

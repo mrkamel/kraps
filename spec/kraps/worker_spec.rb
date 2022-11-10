@@ -382,6 +382,87 @@ module Kraps
       expect(partitions).to eq([[0, [["item1", 1], ["item1", 2], ["item2", 1], ["item2", 3], ["item3", 2], ["item3", 4], ["item4", 2]]]])
     end
 
+    it "executes the specified combine action" do
+      TestWorker.define_method(:call) do
+        job1 = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
+
+        job1 = job1.map do |_, _, collector|
+          collector.call("key1", 1)
+          collector.call("key2", 2)
+          collector.call("key3", 3)
+        end
+
+        job2 = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
+
+        job2 = job2.map do |_, _, collector|
+          collector.call("key1", 3)
+          collector.call("key2", 2)
+          collector.call("key3", 1)
+        end
+
+        job2.combine(job1) { |_, value1, value2| (value1 || 0) + (value2 || 0) }
+      end
+
+      chunk1 = [
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key2", 2])
+      ].join("\n")
+
+      chunk2 = [
+        JSON.generate(["key3", 3]),
+        JSON.generate(["key4", 4])
+      ].join("\n")
+
+      Kraps.driver.driver.store("prefix/combine_token/0/chunk.0.json", chunk1, Kraps.driver.bucket)
+      Kraps.driver.driver.store("prefix/combine_token/0/chunk.1.json", chunk2, Kraps.driver.bucket)
+
+      chunk3 = [
+        JSON.generate(["key0", 0]),
+        JSON.generate(["key1", 3]),
+        JSON.generate(["key2", 2])
+      ].join("\n")
+
+      chunk4 = [
+        JSON.generate(["key3", 1])
+      ].join("\n")
+
+      Kraps.driver.driver.store("prefix/previous_token/0/chunk.0.json", chunk3, Kraps.driver.bucket)
+      Kraps.driver.driver.store("prefix/previous_token/0/chunk.1.json", chunk4, Kraps.driver.bucket)
+
+      build_worker(
+        args: {
+          token: distributed_job.token,
+          part: "0",
+          action: Actions::COMBINE,
+          frame: { token: "previous_token", partitions: 4 },
+          combine_frame: { token: "combine_token", partitions: 4 },
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 1,
+          step_index: 2,
+          partition: 0
+        }
+      ).call(retries: 0)
+
+      expect(Kraps.driver.driver.list(Kraps.driver.bucket).to_a).to eq(
+        [
+          "prefix/combine_token/0/chunk.0.json",
+          "prefix/combine_token/0/chunk.1.json",
+          "prefix/previous_token/0/chunk.0.json",
+          "prefix/previous_token/0/chunk.1.json",
+          "prefix/token/1/chunk.0.json",
+          "prefix/token/2/chunk.0.json"
+        ]
+      )
+      expect(Kraps.driver.driver.value("prefix/token/1/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["key0", 0]), JSON.generate(["key1", 4]), JSON.generate(["key4", 4])].join("\n")
+      )
+      expect(Kraps.driver.driver.value("prefix/token/2/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["key2", 4]), JSON.generate(["key3", 4])].join("\n")
+      )
+    end
+
     it "passes the spcified args and kwargs" do
       passed_args = nil
       passed_kwargs = nil
