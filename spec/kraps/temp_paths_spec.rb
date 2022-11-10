@@ -18,12 +18,12 @@ module Kraps
       end
     end
 
-    describe "#unlink" do
-      it "unlinks all temp paths" do
+    describe "#delete" do
+      it "deletes all temp paths" do
         temp_paths = described_class.new
         temp_paths.add
         temp_paths.add
-        temp_paths.unlink
+        temp_paths.delete
         expect(temp_paths.all? { |temp_path| File.exist?(temp_path.path) }).to eq(false)
       end
     end

@@ -101,6 +101,55 @@ module Kraps
       end
     end
 
+    describe "#map_partitions" do
+      it "adds a corresponding step" do
+        block = ->(key, value, collector) { collector.call(key, value) }
+
+        job = described_class.new(worker: TestJobWorker1)
+
+        job = job.parallelize(partitions: 8) {}
+        job = job.map_partitions(&block)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::MAP_PARTITIONS,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker1,
+              before: nil,
+              block: block
+            )
+          ]
+        )
+      end
+
+      it "respects the passed partitions, partitioner, worker and before" do
+        block = ->(key, value, collector) { collector.call(key, value) }
+        partitioner = ->(key) { key }
+        before = -> {}
+
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.parallelize(partitions: 8) {}
+        job = job.map_partitions(partitions: 16, partitioner: partitioner, worker: TestJobWorker2, before: before, &block)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::MAP_PARTITIONS,
+              partitions: 16,
+              partitioner: partitioner,
+              worker: TestJobWorker2,
+              before: before,
+              block: block
+            )
+          ]
+        )
+      end
+    end
+
     describe "#reduce" do
       it "adds a corresponding step" do
         block = ->(_key, value1, value2) { value1 + value2 }

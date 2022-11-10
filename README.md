@@ -229,6 +229,19 @@ The block gets each key-value pair passed and the `collector` block can be
 called as often as neccessary. This is also the reason why `map` can not simply
 return the new key-value pair, but the `collector` must be used instead.
 
+* `map_partitions`: Maps the key value pairs to other key value pairs, but the
+  block receives all data of each partition as an enumerable and sorted by key.
+  Please be aware that you should not call `to_a` or similar on the enumerable.
+  Prefer `map` over `map_partitions` when possible.
+
+```ruby
+job.map_partitions(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |pairs, collector|
+  pairs.each do |key, value|
+    collector.call("changed #{key}", "changed #{value}")
+  end
+end
+```
+
 * `reduce`: Reduces the values of pairs having the same key
 
 ```ruby
@@ -255,7 +268,8 @@ Repartitions all data into the specified number of partitions and using the
 specified partitioner.
 
 * `each_partition`: Passes the partition number and all data of each partition
-  as a lazy enumerable
+  as an enumerable and sorted by key. Please be aware that you should not call
+  `to_a` or similar on the enumerable.
 
 ```ruby
 job.each_partition do |partition, pairs|

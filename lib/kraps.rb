@@ -1,3 +1,9 @@
+require "distributed_job"
+require "ruby-progressbar"
+require "ruby-progressbar/outputs/null"
+require "map_reduce"
+require "redis"
+
 require_relative "kraps/version"
 require_relative "kraps/drivers"
 require_relative "kraps/actions"
@@ -12,11 +18,6 @@ require_relative "kraps/runner"
 require_relative "kraps/step"
 require_relative "kraps/frame"
 require_relative "kraps/worker"
-require "distributed_job"
-require "ruby-progressbar"
-require "ruby-progressbar/outputs/null"
-require "map_reduce"
-require "redis"
 
 module Kraps
   class Error < StandardError; end

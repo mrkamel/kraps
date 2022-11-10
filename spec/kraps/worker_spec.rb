@@ -168,6 +168,128 @@ module Kraps
       )
     end
 
+    it "executes the specified map partitions action" do
+      partitions = []
+
+      TestWorker.define_method(:call) do
+        Job.new(worker: TestWorker)
+           .parallelize(partitions: 4) {}
+           .map_partitions do |pairs, collector|
+             partitions << pairs.to_a
+
+             pairs.each do |key, value|
+               collector.call(key + "x", value + 1)
+             end
+           end
+      end
+
+      chunk1 = [
+        JSON.generate(["item1", 1]),
+        JSON.generate(["item1", 2]),
+        JSON.generate(["item2", 3]),
+        JSON.generate(["item3", 4])
+      ].join("\n")
+
+      chunk2 = [
+        JSON.generate(["item2", 1]),
+        JSON.generate(["item3", 2]),
+        JSON.generate(["item4", 2])
+      ].join("\n")
+
+      Kraps.driver.driver.store("prefix/previous_token/0/chunk.0.json", chunk1, Kraps.driver.bucket)
+      Kraps.driver.driver.store("prefix/previous_token/0/chunk.1.json", chunk2, Kraps.driver.bucket)
+
+      build_worker(
+        args: {
+          token: distributed_job.token,
+          part: "0",
+          action: Actions::MAP_PARTITIONS,
+          frame: { token: "previous_token", partitions: 4 },
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 0,
+          step_index: 1,
+          partition: 0
+        }
+      ).call
+
+      expect(partitions).to eq([[["item1", 1], ["item1", 2], ["item2", 1], ["item2", 3], ["item3", 2], ["item3", 4], ["item4", 2]]])
+
+      expect(Kraps.driver.driver.list(Kraps.driver.bucket).to_a).to eq(
+        ["prefix/previous_token/0/chunk.0.json", "prefix/previous_token/0/chunk.1.json", "prefix/token/0/chunk.0.json", "prefix/token/2/chunk.0.json", "prefix/token/3/chunk.0.json"]
+      )
+      expect(Kraps.driver.driver.value("prefix/token/0/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item4x", 3])].join("\n")
+      )
+      expect(Kraps.driver.driver.value("prefix/token/2/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item2x", 2]), JSON.generate(["item2x", 4])].join("\n")
+      )
+      expect(Kraps.driver.driver.value("prefix/token/3/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item1x", 2]), JSON.generate(["item1x", 3]), JSON.generate(["item3x", 3]), JSON.generate(["item3x", 5])].join("\n")
+      )
+    end
+
+    it "executes the specified map partitions action and reduces already when the next step is a reduce step" do
+      TestWorker.define_method(:call) do
+        job = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
+
+        job = job.map_partitions do |pairs, collector|
+          pairs.each do |key, _|
+            collector.call(key + "a", 1)
+            collector.call(key + "b", 1)
+            collector.call(key + "a", 1)
+            collector.call(key + "b", 1)
+            collector.call(key + "c", 1)
+          end
+        end
+
+        job.reduce do |_, value1, value2|
+          value1 + value2
+        end
+      end
+
+      chunk1 = [
+        JSON.generate(["item1", nil]),
+        JSON.generate(["item2", nil])
+      ].join("\n")
+
+      chunk2 = [
+        JSON.generate(["item3", nil])
+      ].join("\n")
+
+      Kraps.driver.driver.store("prefix/previous_token/0/chunk.0.json", chunk1, Kraps.driver.bucket)
+      Kraps.driver.driver.store("prefix/previous_token/0/chunk.1.json", chunk2, Kraps.driver.bucket)
+
+      build_worker(
+        args: {
+          token: distributed_job.token,
+          part: "0",
+          action: Actions::MAP,
+          frame: { token: "previous_token", partitions: 4 },
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 0,
+          step_index: 1,
+          partition: 0
+        }
+      ).call
+
+      expect(Kraps.driver.driver.list(Kraps.driver.bucket).to_a).to eq(
+        ["prefix/previous_token/0/chunk.0.json", "prefix/previous_token/0/chunk.1.json", "prefix/token/0/chunk.0.json", "prefix/token/1/chunk.0.json", "prefix/token/3/chunk.0.json"]
+      )
+      expect(Kraps.driver.driver.value("prefix/token/0/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item1a", 2]), JSON.generate(["item1b", 2]), JSON.generate(["item3c", 1])].join("\n")
+      )
+      expect(Kraps.driver.driver.value("prefix/token/1/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item1c", 1]), JSON.generate(["item2a", 2]), JSON.generate(["item2c", 1]), JSON.generate(["item3a", 2])].join("\n")
+      )
+      expect(Kraps.driver.driver.value("prefix/token/3/chunk.0.json", Kraps.driver.bucket).strip).to eq(
+        [JSON.generate(["item2b", 2]), JSON.generate(["item3b", 2])].join("\n")
+      )
+    end
+
     it "executes the specified reduce action" do
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)
@@ -216,18 +338,13 @@ module Kraps
     end
 
     it "executes the specified each partition action" do
-      store = {}
       partitions = []
 
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
            .each_partition do |partition, pairs|
-             partitions << partition
-
-             pairs.each do |key, value|
-               (store[key] ||= []) << value
-             end
+             partitions << [partition, pairs.to_a]
            end
       end
 
@@ -262,8 +379,7 @@ module Kraps
         }
       ).call
 
-      expect(partitions).to match_array([0])
-      expect(store).to eq("item1" => [1, 2], "item2" => [3, 1], "item3" => [4, 2], "item4" => [2])
+      expect(partitions).to eq([[0, [["item1", 1], ["item1", 2], ["item2", 1], ["item2", 3], ["item3", 2], ["item3", 4], ["item4", 2]]]])
     end
 
     it "passes the spcified args and kwargs" do

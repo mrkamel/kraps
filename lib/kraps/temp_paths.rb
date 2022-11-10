@@ -17,9 +17,9 @@ module Kraps
       end
     end
 
-    def unlink
+    def delete
       synchronize do
-        @temp_paths.each(&:unlink)
+        @temp_paths.each(&:delete)
       end
     end
 

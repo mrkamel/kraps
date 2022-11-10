@@ -1,5 +1,7 @@
 module Kraps
   class Worker
+    include MapReduce::Mergeable
+
     def initialize(json, memory_limit:, chunk_limit:, concurrency:)
       @args = JSON.parse(json)
       @memory_limit = memory_limit
@@ -92,7 +94,51 @@ module Kraps
         end
       end
     ensure
-      temp_paths&.unlink
+      temp_paths&.delete
+    end
+
+    def perform_map_partitions
+      temp_paths = TempPaths.new
+
+      files = Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")).sort
+
+      temp_paths_index = files.each_with_object({}) do |file, hash|
+        hash[file] = temp_paths.add
+      end
+
+      Parallelizer.each(files, @concurrency) do |file|
+        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
+      end
+
+      current_step = step
+
+      implementation = Object.new
+      implementation.define_singleton_method(:map) do |enum, &block|
+        current_step.block.call(enum, block)
+      end
+
+      subsequent_step = next_step
+
+      if subsequent_step&.action == Actions::REDUCE
+        implementation.define_singleton_method(:reduce) do |key, value1, value2|
+          subsequent_step.block.call(key, value1, value2)
+        end
+      end
+
+      mapper = MapReduce::Mapper.new(implementation, partitioner: partitioner, memory_limit: @memory_limit)
+      mapper.map(k_way_merge(temp_paths.each.to_a, chunk_limit: @chunk_limit))
+
+      mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
+        Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
+          File.open(path) do |stream|
+            Kraps.driver.driver.store(
+              Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream, Kraps.driver.bucket
+            )
+          end
+        end
+      end
+    ensure
+      temp_paths&.delete
     end
 
     def perform_reduce
@@ -133,17 +179,9 @@ module Kraps
         Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
       end
 
-      enum = Enumerator::Lazy.new(temp_paths) do |yielder, temp_path|
-        File.open(temp_path.path) do |stream|
-          stream.each_line do |line|
-            yielder << JSON.parse(line)
-          end
-        end
-      end
-
-      step.block.call(@args["partition"], enum)
+      step.block.call(@args["partition"], k_way_merge(temp_paths.each.to_a, chunk_limit: @chunk_limit))
     ensure
-      temp_paths&.unlink
+      temp_paths&.delete
     end
 
     def with_retries(num_retries)

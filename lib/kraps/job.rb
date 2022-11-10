@@ -45,6 +45,24 @@ module Kraps
       end
     end
 
+    def map_partitions(partitions: nil, partitioner: nil, worker: @worker, before: nil, &block)
+      fresh.tap do |job|
+        job.instance_eval do
+          @partitions = partitions if partitions
+          @partitioner = partitioner if partitioner
+
+          @steps << Step.new(
+            action: Actions::MAP_PARTITIONS,
+            partitions: @partitions,
+            partitioner: @partitioner,
+            worker: worker,
+            before: before,
+            block: block
+          )
+        end
+      end
+    end
+
     def reduce(worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do

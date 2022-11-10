@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.6.0
+
+* Added `map_partitions`
+
 ## v0.5.0
 
 * Added a `before` option to specify a callable to run before
