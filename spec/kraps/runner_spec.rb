@@ -140,6 +140,12 @@ module Kraps
             collector.call(key, 1)
           end
 
+          job = job.map_partitions do |pairs, collector|
+            pairs.each do |key, value|
+              collector.call(key, value)
+            end
+          end
+
           job = job.reduce do |_key, value1, value2|
             reduce_calls += 1
 

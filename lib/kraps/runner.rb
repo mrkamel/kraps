@@ -69,6 +69,16 @@ module Kraps
         end
       end
 
+      def perform_map_partitions
+        with_distributed_job do |distributed_job|
+          push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
+            enqueue(token: distributed_job.token, part: part, partition: partition)
+          end
+
+          Frame.new(token: distributed_job.token, partitions: @step.partitions)
+        end
+      end
+
       def perform_reduce
         with_distributed_job do |distributed_job|
           push_and_wait(distributed_job, 0...@frame.partitions) do |partition, part|
