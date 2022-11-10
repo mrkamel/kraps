@@ -1,3 +1,3 @@
 module Kraps
-  Step = Struct.new(:action, :args, :block, :frame, keyword_init: true)
+  Step = Struct.new(:action, :partitioner, :partitions, :block, :worker, :before, :frame, keyword_init: true)
 end

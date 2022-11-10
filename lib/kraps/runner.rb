@@ -55,7 +55,7 @@ module Kraps
             enqueue(token: distributed_job.token, part: part, item: item)
           end
 
-          Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
+          Frame.new(token: distributed_job.token, partitions: @step.partitions)
         end
       end
 
@@ -65,7 +65,7 @@ module Kraps
             enqueue(token: distributed_job.token, part: part, partition: partition)
           end
 
-          Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
+          Frame.new(token: distributed_job.token, partitions: @step.partitions)
         end
       end
 
@@ -75,7 +75,7 @@ module Kraps
             enqueue(token: distributed_job.token, part: part, partition: partition)
           end
 
-          Frame.new(token: distributed_job.token, partitions: @step.args[:partitions])
+          Frame.new(token: distributed_job.token, partitions: @step.partitions)
         end
       end
 
@@ -91,7 +91,7 @@ module Kraps
 
       def enqueue(token:, part:, **rest)
         Kraps.enqueuer.call(
-          @step.args[:worker],
+          @step.worker,
           JSON.generate(
             job_index: @job_index,
             step_index: @step_index,

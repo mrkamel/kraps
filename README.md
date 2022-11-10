@@ -265,6 +265,19 @@ job.each_partition do |partition, pairs|
 end
 ```
 
+Please note that every API method accepts a `before` callable:
+
+```ruby
+before_block = proc do
+  # runs once before the map action in every worker, which can be useful to
+  # e.g. populate caches etc.
+end
+
+job.map(before: before_block) do |key, value, collector|
+  # ...
+end
+```
+
 ## More Complex Jobs
 
 Please note that a job class can return multiple jobs and jobs can build up on
