@@ -4,6 +4,7 @@
 
 * Added `map_partitions`
 * Added `combine`
+* Added `dump` and `load`
 
 ## v0.5.0
 

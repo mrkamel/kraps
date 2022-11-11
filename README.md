@@ -297,6 +297,22 @@ job.each_partition do |partition, pairs|
 end
 ```
 
+* `dump`: Store all current data per partition under the specified prefix
+
+```ruby
+job.dump(prefix: "path/to/dump", worker: MyKrapsWorker)
+```
+
+It creates a folder for every partition and stores one or more chunks in there.
+
+* `load`: Loads the previously dumped data
+
+```ruby
+job.load(prefix: "path/to/dump", partitions: 32, partitioner: Kraps::HashPartitioner.new, worker: MyKrapsWorker)
+```
+
+The number of partitions and the partitioner must be specified.
+
 Please note that every API method accepts a `before` callable:
 
 ```ruby

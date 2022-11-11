@@ -373,5 +373,105 @@ module Kraps
         )
       end
     end
+
+    describe "#dump" do
+      it "adds a corresponding each partition step" do
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.parallelize(partitions: 8) {}
+        job = job.dump(prefix: "path/to/destination")
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::EACH_PARTITION,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker1,
+              before: nil,
+              block: kind_of(Proc)
+            )
+          ]
+        )
+      end
+
+      it "respects the passed worker" do
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.parallelize(partitions: 8) {}
+        job = job.dump(prefix: "path/to/destination", worker: TestJobWorker2)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::EACH_PARTITION,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker2,
+              before: nil,
+              block: kind_of(Proc)
+            )
+          ]
+        )
+      end
+    end
+
+    describe "#load" do
+      it "adds a corresponding parallelize and map partitions step" do
+        partitioner = ->(key) { key }
+
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(
+              action: Actions::PARALLELIZE,
+              partitions: 8,
+              partitioner: kind_of(Proc),
+              worker: TestJobWorker1,
+              before: nil,
+              block: kind_of(Proc)
+            ),
+            an_object_having_attributes(
+              action: Actions::MAP_PARTITIONS,
+              partitions: 8,
+              partitioner: partitioner,
+              worker: TestJobWorker1,
+              before: nil,
+              block: kind_of(Proc)
+            )
+          ]
+        )
+      end
+
+      it "respects the passed worker" do
+        partitioner = ->(key) { key }
+
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner, worker: TestJobWorker2)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(
+              action: Actions::PARALLELIZE,
+              partitions: 8,
+              partitioner: kind_of(Proc),
+              worker: TestJobWorker2,
+              before: nil,
+              block: kind_of(Proc)
+            ),
+            an_object_having_attributes(
+              action: Actions::MAP_PARTITIONS,
+              partitions: 8,
+              partitioner: partitioner,
+              worker: TestJobWorker2,
+              before: nil,
+              block: kind_of(Proc)
+            )
+          ]
+        )
+      end
+    end
   end
 end

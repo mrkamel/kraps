@@ -116,6 +116,45 @@ module Kraps
       end
     end
 
+    def dump(prefix:, worker: @worker)
+      each_partition(worker: worker) do |partition, pairs|
+        tempfile = Tempfile.new
+
+        pairs.each do |pair|
+          tempfile.puts(JSON.generate(pair))
+        end
+
+        Kraps.driver.driver.store(File.join(prefix, partition.to_s, "chunk.json"), tempfile.tap(&:rewind), Kraps.driver.bucket)
+      ensure
+        tempfile&.close(true)
+      end
+    end
+
+    def load(prefix:, partitions:, partitioner:, worker: @worker)
+      job = parallelize(partitions: partitions, partitioner: proc { |key, _| key }, worker: worker) do |collector|
+        (0...partitions).each do |partition|
+          collector.call(partition)
+        end
+      end
+
+      job.map_partitions(partitioner: partitioner, worker: worker) do |pairs, collector|
+        tempfile = Tempfile.new
+
+        path = File.join(prefix, pairs.first[0].to_s, "chunk.json")
+        next unless Kraps.driver.driver.exists?(path, Kraps.driver.bucket)
+
+        Kraps.driver.driver.download(path, Kraps.driver.bucket, tempfile.path)
+
+        tempfile.each_line do |line|
+          key, value = JSON.parse(line)
+
+          collector.call(key, value)
+        end
+      ensure
+        tempfile&.close(true)
+      end
+    end
+
     def fresh
       dup.tap do |job|
         job.instance_variable_set(:@steps, @steps.dup)
