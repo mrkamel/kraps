@@ -38,7 +38,7 @@ module Kraps
       mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
         Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
           File.open(path) do |stream|
-            Kraps.driver.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream, Kraps.driver.bucket)
+            Kraps.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream)
           end
         end
       end
@@ -77,9 +77,7 @@ module Kraps
       mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
         Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
           File.open(path) do |stream|
-            Kraps.driver.driver.store(
-              Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream, Kraps.driver.bucket
-            )
+            Kraps.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream)
           end
         end
       end
@@ -111,9 +109,7 @@ module Kraps
       mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
         Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
           File.open(path) do |stream|
-            Kraps.driver.driver.store(
-              Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream, Kraps.driver.bucket
-            )
+            Kraps.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream)
           end
         end
       end
@@ -131,8 +127,8 @@ module Kraps
 
       reducer = MapReduce::Reducer.new(implementation)
 
-      Parallelizer.each(Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency) do |file|
-        Kraps.driver.driver.download(file, Kraps.driver.bucket, reducer.add_chunk)
+      Parallelizer.each(Kraps.driver.list(prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")), @concurrency) do |file|
+        Kraps.driver.download(file, reducer.add_chunk)
       end
 
       tempfile = Tempfile.new
@@ -141,7 +137,7 @@ module Kraps
         tempfile.puts(JSON.generate([key, value]))
       end
 
-      Kraps.driver.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{@args["partition"]}/chunk.#{@args["part"]}.json"), tempfile.tap(&:rewind), Kraps.driver.bucket)
+      Kraps.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{@args["partition"]}/chunk.#{@args["part"]}.json"), tempfile.tap(&:rewind))
     ensure
       tempfile&.close(true)
     end
@@ -169,9 +165,7 @@ module Kraps
       mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
         Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
           File.open(path) do |stream|
-            Kraps.driver.driver.store(
-              Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream, Kraps.driver.bucket
-            )
+            Kraps.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{@args["part"]}.json"), stream)
           end
         end
       end
@@ -220,14 +214,14 @@ module Kraps
     def perform_each_partition
       temp_paths = TempPaths.new
 
-      files = Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")).sort
+      files = Kraps.driver.list(prefix: Kraps.driver.with_prefix("#{@args["frame"]["token"]}/#{@args["partition"]}/")).sort
 
       temp_paths_index = files.each_with_object({}) do |file, hash|
         hash[file] = temp_paths.add
       end
 
       Parallelizer.each(files, @concurrency) do |file|
-        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
+        Kraps.driver.download(file, temp_paths_index[file].path)
       end
 
       step.block.call(@args["partition"], k_way_merge(temp_paths.each.to_a, chunk_limit: @chunk_limit))
@@ -259,14 +253,14 @@ module Kraps
     def download_all(token:, partition:)
       temp_paths = TempPaths.new
 
-      files = Kraps.driver.driver.list(Kraps.driver.bucket, prefix: Kraps.driver.with_prefix("#{token}/#{partition}/")).sort
+      files = Kraps.driver.list(prefix: Kraps.driver.with_prefix("#{token}/#{partition}/")).sort
 
       temp_paths_index = files.each_with_object({}) do |file, hash|
         hash[file] = temp_paths.add
       end
 
       Parallelizer.each(files, @concurrency) do |file|
-        Kraps.driver.driver.download(file, Kraps.driver.bucket, temp_paths_index[file].path)
+        Kraps.driver.download(file, temp_paths_index[file].path)
       end
 
       temp_paths

@@ -8,6 +8,26 @@ module Kraps
       def with_prefix(path)
         File.join(*[@prefix, path].compact)
       end
+
+      def list(prefix: nil)
+        driver.list(bucket, prefix: prefix)
+      end
+
+      def value(name)
+        driver.value(name, bucket)
+      end
+
+      def download(name, path)
+        driver.download(name, bucket, path)
+      end
+
+      def exists?(name)
+        driver.exists?(name, bucket)
+      end
+
+      def store(name, data_or_io, options = {})
+        driver.store(name, data_or_io, bucket, options)
+      end
     end
 
     class S3Driver

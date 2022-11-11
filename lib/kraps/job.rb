@@ -124,7 +124,7 @@ module Kraps
           tempfile.puts(JSON.generate(pair))
         end
 
-        Kraps.driver.driver.store(File.join(prefix, partition.to_s, "chunk.json"), tempfile.tap(&:rewind), Kraps.driver.bucket)
+        Kraps.driver.store(File.join(prefix, partition.to_s, "chunk.json"), tempfile.tap(&:rewind))
       ensure
         tempfile&.close(true)
       end
@@ -141,9 +141,9 @@ module Kraps
         tempfile = Tempfile.new
 
         path = File.join(prefix, pairs.first[0].to_s, "chunk.json")
-        next unless Kraps.driver.driver.exists?(path, Kraps.driver.bucket)
+        next unless Kraps.driver.exists?(path)
 
-        Kraps.driver.driver.download(path, Kraps.driver.bucket, tempfile.path)
+        Kraps.driver.download(path, tempfile.path)
 
         tempfile.each_line do |line|
           key, value = JSON.parse(line)
