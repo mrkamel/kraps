@@ -103,7 +103,7 @@ module Kraps
 
     describe "#map_partitions" do
       it "adds a corresponding step" do
-        block = ->(key, value, collector) { collector.call(key, value) }
+        block = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
 
@@ -126,7 +126,7 @@ module Kraps
       end
 
       it "respects the passed partitions, partitioner, worker and before" do
-        block = ->(key, value, collector) { collector.call(key, value) }
+        block = -> {}
         partitioner = ->(key) { key }
         before = -> {}
 
@@ -152,7 +152,7 @@ module Kraps
 
     describe "#reduce" do
       it "adds a corresponding step" do
-        block = ->(_key, value1, value2) { value1 + value2 }
+        block = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
@@ -176,7 +176,7 @@ module Kraps
       end
 
       it "respects the passed worker and before" do
-        block = ->(_key, value1, value2) { value1 + value2 }
+        block = -> {}
         before = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
@@ -203,7 +203,7 @@ module Kraps
 
     describe "#combine" do
       it "adds a corresponding step" do
-        block = ->(value1, value2) { (value1 || 0) + (value2 || 0) }
+        block = -> {}
 
         job1 = described_class.new(worker: TestJobWorker1)
         job1 = job1.parallelize(partitions: 8) do |collector|

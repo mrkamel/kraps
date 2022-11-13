@@ -174,8 +174,8 @@ module Kraps
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
-           .map_partitions do |pairs, collector|
-             partitions << pairs.to_a
+           .map_partitions do |partition, pairs, collector|
+             partitions << [partition, pairs.to_a]
 
              pairs.each do |key, value|
                collector.call(key + "x", value + 1)
@@ -214,7 +214,7 @@ module Kraps
         }
       ).call
 
-      expect(partitions).to eq([[["item1", 1], ["item1", 2], ["item2", 1], ["item2", 3], ["item3", 2], ["item3", 4], ["item4", 2]]])
+      expect(partitions).to eq([[0, [["item1", 1], ["item1", 2], ["item2", 1], ["item2", 3], ["item3", 2], ["item3", 4], ["item4", 2]]]])
 
       expect(Kraps.driver.driver.list(Kraps.driver.bucket).to_a).to eq(
         ["prefix/previous_token/0/chunk.0.json", "prefix/previous_token/0/chunk.1.json", "prefix/token/0/chunk.0.json", "prefix/token/2/chunk.0.json", "prefix/token/3/chunk.0.json"]
@@ -234,7 +234,7 @@ module Kraps
       TestWorker.define_method(:call) do
         job = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
 
-        job = job.map_partitions do |pairs, collector|
+        job = job.map_partitions do |_, pairs, collector|
           pairs.each do |key, _|
             collector.call(key + "a", 1)
             collector.call(key + "b", 1)

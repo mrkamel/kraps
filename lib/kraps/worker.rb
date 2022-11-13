@@ -89,10 +89,11 @@ module Kraps
       temp_paths = download_all(token: @args["frame"]["token"], partition: @args["partition"])
 
       current_step = step
+      current_partition = @args["partition"]
 
       implementation = Object.new
       implementation.define_singleton_method(:map) do |enum, &block|
-        current_step.block.call(enum, block)
+        current_step.block.call(current_partition, enum, block)
       end
 
       subsequent_step = next_step

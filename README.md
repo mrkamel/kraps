@@ -3,11 +3,12 @@
 **Easily process big data in ruby**
 
 Kraps allows to process and perform calculations on very large datasets in
-parallel using a map/reduce framework and runs on a background job framework
-you already have. You just need some space on your filesystem, S3 as a storage
-layer with temporary lifecycle policy enabled, the already mentioned background
-job framework (like sidekiq, shoryuken, etc) and redis to keep track of the
-progress. Most things you most likely already have in place anyways.
+parallel using a map/reduce framework similar to [spark](https://spark.apache.org/),
+but runs on a background job framework you already have. You just need some
+space on your filesystem, S3 as a storage layer with temporary lifecycle policy
+enabled, the already mentioned background job framework (like sidekiq,
+shoryuken, etc) and redis to keep track of the progress. Most things you most
+likely already have in place anyways.
 
 ## Installation
 
@@ -115,13 +116,13 @@ be able to give 300-400 megabytes to Kraps then, but now divide this by 10 and
 specify a `memory_limit` of around `30.megabytes`, better less. The
 `memory_limit` affects how much chunks will be written to disk depending on the
 data size you are processing and how big these chunks are. The smaller the
-value, the more chunks and the more chunks, the more runs Kraps need to merge
-the chunks. It can affect the performance The `chunk_limit` ensures that only
-the specified amount of chunks are processed in a single run. A run basically
-means: it takes up to `chunk_limit` chunks, reduces them and pushes the result
-as a new chunk to the list of chunks to process. Thus, if your number of file
-descriptors is unlimited, you want to set it to a higher number to avoid the
-overhead of multiple runs. `concurrency` tells Kraps how much threads to use to
+value, the more chunks. The more chunks, the more runs Kraps need to merge
+the chunks. The `chunk_limit` ensures that only the specified amount of chunks
+are processed in a single run. A run basically means: it takes up to
+`chunk_limit` chunks, reduces them and pushes the result as a new chunk to the
+list of chunks to process. Thus, if your number of file descriptors is
+unlimited, you want to set it to a higher number to avoid the overhead of
+multiple runs. `concurrency` tells Kraps how much threads to use to
 concurrently upload/download files from the storage layer. Finally, `retries`
 specifies how often Kraps should retry the job step in case of errors. Kraps
 will sleep for 5 seconds between those retries. Please note that it's not yet
@@ -129,7 +130,6 @@ possible to use the retry mechanism of your background job framework with
 Kraps. Please note, however, that `parallelize` is not covered by `retries`
 yet, as the block passed to `parallelize` is executed by the runner, not the
 workers.
-
 
 Now, executing your job is super easy:
 
@@ -182,11 +182,11 @@ https://github.com/mrkamel/map-reduce-ruby/#limitations-for-keys
 ## Storage
 
 Kraps stores temporary results of steps in a storage layer. Currently, only S3
-is supported besides a in memory driver used for testing purposes. Please be
+is supported besides a in-memory driver used for testing purposes. Please be
 aware that Kraps does not clean up any files from the storage layer, as it
-would be a safe thing to do in case of errors anyways. Instead, Kraps relies on
-lifecycle features of modern object storage systems. Therefore, it is recommend
-to e.g. configure a lifecycle policy to delete any files after e.g. 7 days
+would not be a safe thing to do in case of errors anyways. Instead, Kraps
+relies on lifecycle features of modern object storage systems. Therefore, it is
+required to configure a lifecycle policy to delete any files after e.g. 7 days
 either for a whole bucket or for a certain prefix like e.g. `temp/` and tell
 Kraps about the prefix to use (e.g. `temp/kraps/`).
 

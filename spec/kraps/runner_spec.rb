@@ -220,7 +220,7 @@ module Kraps
             collector.call(key, 1)
           end
 
-          job = job.map_partitions do |pairs, collector|
+          job = job.map_partitions do |_, pairs, collector|
             pairs.each do |key, value|
               collector.call(key, value)
             end

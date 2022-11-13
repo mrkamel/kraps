@@ -137,10 +137,10 @@ module Kraps
         end
       end
 
-      job.map_partitions(partitioner: partitioner, worker: worker) do |pairs, collector|
+      job.map_partitions(partitioner: partitioner, worker: worker) do |partition, _, collector|
         tempfile = Tempfile.new
 
-        path = File.join(prefix, pairs.first[0].to_s, "chunk.json")
+        path = File.join(prefix, partition.to_s, "chunk.json")
         next unless Kraps.driver.exists?(path)
 
         Kraps.driver.download(path, tempfile.path)
