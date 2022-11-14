@@ -2,7 +2,7 @@ module Kraps
   RSpec.describe Drivers do
     let(:driver) { Kraps::Drivers::FakeDriver.new(bucket: "bucket", prefix: "some/prefix") }
 
-    after { driver.driver.flush }
+    after { driver.flush }
 
     describe "#with_prefix" do
       it "prepends the prefix" do
