@@ -186,7 +186,7 @@ module Kraps
         if current2.nil?
           yield(current1[0], current1[1], nil)
 
-          current1 = begin; enum2.next; rescue StopIteration; nil; end
+          current1 = begin; enum1.next; rescue StopIteration; nil; end
         elsif current1[0] == current2[0]
           loop do
             yield(current1[0], current1[1], current2[1])
