@@ -413,7 +413,7 @@ module Kraps
         JSON.generate(["key0", 1]),
         JSON.generate(["key1", 1]),
         JSON.generate(["key1", 1]),
-        JSON.generate(["key3", 1]),
+        JSON.generate(["key3", 1])
       ].join("\n")
 
       chunk4 = [
