@@ -10,6 +10,18 @@ module Kraps
       end
     end
 
+    describe "#flush" do
+      it "clears all objects" do
+        driver.store("path/to/object1", "value1")
+        driver.store("path/to/object2", "value2")
+
+        driver.flush
+
+        expect(driver.exists?("path/to/object1")).to eq(false)
+        expect(driver.exists?("path/to/object2")).to eq(false)
+      end
+    end
+
     describe "#list" do
       it "returns the list of objects in the bucket" do
         driver.store("some/path/to/object1", "value1")

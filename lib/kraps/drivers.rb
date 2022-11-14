@@ -52,6 +52,10 @@ module Kraps
         @bucket = bucket
         @prefix = prefix
       end
+
+      def flush
+        driver.flush
+      end
     end
   end
 end

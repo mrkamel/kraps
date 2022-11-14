@@ -374,6 +374,52 @@ When you execute the job, Kraps will execute the jobs one after another and as
 the jobs build up on each other, Kraps will execute the steps shared by both
 jobs only once.
 
+## Testing
+
+Kraps ships with an in-memory fake driver for storage, which you can use for
+testing purposes instead of the s3 driver:
+
+```ruby Kraps.configure(
+  driver: Kraps::Drivers::FakeDriver.new(bucket: "kraps"),
+  # ...
+) ```
+
+This is of course much faster than using s3 or some s3 compatible service.
+Moreover, when testing large Kraps jobs you maybe want to test intermediate
+steps. You can use `#dump` for this purpose and test that the data dumped is
+correct.
+
+```ruby
+job = job.dump("path/to/dump")
+```
+
+and in your tests do
+
+```ruby
+Kraps.driver.value("path/to/dump/0/chunk.json") # => data of partition 0
+Kraps.driver.value("path/to/dump/1/chunk.json") # => data of partition 1
+# ...
+```
+
+The data is stored in lines, each line is a json encoded array of key and
+value.
+
+```ruby
+data = Kraps.driver.value("path/to/dump/0/chunk.json).lines.map do |line|
+  JSON.parse(line) # => [key, value]
+end
+```
+
+The API of the driver is:
+
+* `store(name, data_or_ui, options = {})`: Stores `data_or_io` as `name`
+* `list(prefix: nil)`: Lists all objects or all objects matching the `prefix`
+* `value(name)`: Returns the object content of `name`
+* `download(name, path)`: Downloads the object `name` to `path` in your
+  filesystem
+* `exists?(name)`: Returns `true`/`false`
+* `flush`: Removes all objects from the fake storage
+
 ## Dependencies
 
 Kraps is built on top of
