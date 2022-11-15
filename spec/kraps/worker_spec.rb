@@ -2,8 +2,8 @@ class TestWorker; end
 
 module Kraps
   RSpec.describe Worker do
-    def build_worker(args:, memory_limit: 128 * 1024 * 1024, chunk_limit: 32, concurrency: 8)
-      described_class.new(JSON.generate(args), memory_limit: memory_limit, chunk_limit: chunk_limit, concurrency: concurrency)
+    def build_worker(args:, memory_limit: 128 * 1024 * 1024, chunk_limit: 32, concurrency: 8, **rest)
+      described_class.new(JSON.generate(args), memory_limit: memory_limit, chunk_limit: chunk_limit, concurrency: concurrency, **rest)
     end
 
     let(:distributed_job) { Kraps.distributed_job_client.build(token: "token") }
@@ -522,7 +522,10 @@ module Kraps
       expect(worker.send(:partitioner).call("key")).to eq(["key", 8])
     end
 
-    it "retries for the specified amount of times" do
+    it "retries for the specified amount of times and logs errors" do
+      logger = double
+      allow(logger).to receive(:error)
+
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
@@ -549,7 +552,8 @@ module Kraps
           job_index: 0,
           step_index: 1,
           partition: 0
-        }
+        },
+        logger: logger
       )
 
       allow(worker).to receive(:sleep)
@@ -557,6 +561,7 @@ module Kraps
       expect { worker.call(retries: 5) }.to raise_error("error")
 
       expect(worker).to have_received(:sleep).with(5).exactly(5).times
+      expect(logger).to have_received(:error).with(RuntimeError).exactly(5).times
       expect(distributed_job.stopped?).to eq(true)
     end
 

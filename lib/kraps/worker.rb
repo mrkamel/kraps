@@ -2,11 +2,12 @@ module Kraps
   class Worker
     include MapReduce::Mergeable
 
-    def initialize(json, memory_limit:, chunk_limit:, concurrency:)
+    def initialize(json, memory_limit:, chunk_limit:, concurrency:, logger: Logger.new("/dev/null"))
       @args = JSON.parse(json)
       @memory_limit = memory_limit
       @chunk_limit = chunk_limit
       @concurrency = concurrency
+      @logger = logger
     end
 
     def call(retries: 3)
@@ -238,11 +239,13 @@ module Kraps
       rescue Kraps::Error
         distributed_job.stop
         raise
-      rescue StandardError
+      rescue StandardError => e
         if retries >= num_retries
           distributed_job.stop
           raise
         end
+
+        @logger.error(e)
 
         sleep(5)
         retries += 1
