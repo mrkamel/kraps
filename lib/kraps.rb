@@ -1,3 +1,9 @@
+require "distributed_job"
+require "ruby-progressbar"
+require "ruby-progressbar/outputs/null"
+require "map_reduce"
+require "redis"
+
 require_relative "kraps/version"
 require_relative "kraps/drivers"
 require_relative "kraps/actions"
@@ -8,21 +14,18 @@ require_relative "kraps/temp_paths"
 require_relative "kraps/timeout_queue"
 require_relative "kraps/interval"
 require_relative "kraps/job"
+require_relative "kraps/job_resolver"
 require_relative "kraps/runner"
 require_relative "kraps/step"
 require_relative "kraps/frame"
 require_relative "kraps/worker"
-require "distributed_job"
-require "ruby-progressbar"
-require "ruby-progressbar/outputs/null"
-require "map_reduce"
-require "redis"
 
 module Kraps
   class Error < StandardError; end
   class InvalidAction < Error; end
   class InvalidStep < Error; end
   class JobStopped < Error; end
+  class IncompatibleFrame < Error; end
 
   def self.configure(driver:, redis: Redis.new, namespace: nil, job_ttl: 24 * 60 * 60, show_progress: true, enqueuer: ->(worker, json) { worker.perform_async(json) })
     @driver = driver

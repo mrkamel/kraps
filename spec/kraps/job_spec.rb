@@ -101,9 +101,58 @@ module Kraps
       end
     end
 
+    describe "#map_partitions" do
+      it "adds a corresponding step" do
+        block = -> {}
+
+        job = described_class.new(worker: TestJobWorker1)
+
+        job = job.parallelize(partitions: 8) {}
+        job = job.map_partitions(&block)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::MAP_PARTITIONS,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker1,
+              before: nil,
+              block: block
+            )
+          ]
+        )
+      end
+
+      it "respects the passed partitions, partitioner, worker and before" do
+        block = -> {}
+        partitioner = ->(key) { key }
+        before = -> {}
+
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.parallelize(partitions: 8) {}
+        job = job.map_partitions(partitions: 16, partitioner: partitioner, worker: TestJobWorker2, before: before, &block)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::MAP_PARTITIONS,
+              partitions: 16,
+              partitioner: partitioner,
+              worker: TestJobWorker2,
+              before: before,
+              block: block
+            )
+          ]
+        )
+      end
+    end
+
     describe "#reduce" do
       it "adds a corresponding step" do
-        block = ->(_key, value1, value2) { value1 + value2 }
+        block = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
@@ -126,14 +175,14 @@ module Kraps
         )
       end
 
-      it "respects the passed before" do
-        block = ->(_key, value1, value2) { value1 + value2 }
+      it "respects the passed worker and before" do
+        block = -> {}
         before = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
         job = job.map { |key, value, collector| collector.call(key, value) }
-        job = job.reduce(before: before, &block)
+        job = job.reduce(before: before, worker: TestJobWorker2, &block)
 
         expect(job.steps).to match(
           [
@@ -143,7 +192,84 @@ module Kraps
               action: Actions::REDUCE,
               partitions: 8,
               partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker2,
+              before: before,
+              block: block
+            )
+          ]
+        )
+      end
+    end
+
+    describe "#combine" do
+      it "adds a corresponding step" do
+        block = -> {}
+
+        job1 = described_class.new(worker: TestJobWorker1)
+        job1 = job1.parallelize(partitions: 8) do |collector|
+          collector.call("key1", 1)
+          collector.call("key2", 2)
+          collector.call("key3", 3)
+        end
+        job1 = job1.map do |key, value, collector|
+          collector.call(key, value + 1)
+        end
+
+        job2 = described_class.new(worker: TestJobWorker1)
+        job2 = job2.parallelize(partitions: 8) do |collector|
+          collector.call("key1", 3)
+          collector.call("key2", 2)
+          collector.call("key3", 1)
+        end
+        job2 = job2.combine(job1, &block)
+
+        expect(job2.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::COMBINE,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
               worker: TestJobWorker1,
+              before: nil,
+              block: block,
+              dependency: job1,
+              options: { combine_step_index: 1 }
+            )
+          ]
+        )
+      end
+
+      it "respects the passed worker and before" do
+        block = -> {}
+        before = -> {}
+
+        job1 = described_class.new(worker: TestJobWorker1)
+        job1 = job1.parallelize(partitions: 8) do |collector|
+          collector.call("key1", 1)
+          collector.call("key2", 2)
+          collector.call("key3", 3)
+        end
+        job1 = job1.map do |key, value, collector|
+          collector.call(key, value + 1)
+        end
+
+        job2 = described_class.new(worker: TestJobWorker1)
+        job2 = job2.parallelize(partitions: 8) do |collector|
+          collector.call("key1", 3)
+          collector.call("key2", 2)
+          collector.call("key3", 1)
+        end
+        job2 = job2.combine(job1, worker: TestJobWorker2, before: before, &block)
+
+        expect(job2.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::COMBINE,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker2,
               before: before,
               block: block
             )
@@ -241,6 +367,106 @@ module Kraps
               partitioner: kind_of(HashPartitioner),
               worker: TestJobWorker2,
               before: before,
+              block: kind_of(Proc)
+            )
+          ]
+        )
+      end
+    end
+
+    describe "#dump" do
+      it "adds a corresponding each partition step" do
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.parallelize(partitions: 8) {}
+        job = job.dump(prefix: "path/to/destination")
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::EACH_PARTITION,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker1,
+              before: nil,
+              block: kind_of(Proc)
+            )
+          ]
+        )
+      end
+
+      it "respects the passed worker" do
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.parallelize(partitions: 8) {}
+        job = job.dump(prefix: "path/to/destination", worker: TestJobWorker2)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(action: Actions::PARALLELIZE),
+            an_object_having_attributes(
+              action: Actions::EACH_PARTITION,
+              partitions: 8,
+              partitioner: kind_of(HashPartitioner),
+              worker: TestJobWorker2,
+              before: nil,
+              block: kind_of(Proc)
+            )
+          ]
+        )
+      end
+    end
+
+    describe "#load" do
+      it "adds a corresponding parallelize and map partitions step" do
+        partitioner = ->(key) { key }
+
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(
+              action: Actions::PARALLELIZE,
+              partitions: 8,
+              partitioner: kind_of(Proc),
+              worker: TestJobWorker1,
+              before: nil,
+              block: kind_of(Proc)
+            ),
+            an_object_having_attributes(
+              action: Actions::MAP_PARTITIONS,
+              partitions: 8,
+              partitioner: partitioner,
+              worker: TestJobWorker1,
+              before: nil,
+              block: kind_of(Proc)
+            )
+          ]
+        )
+      end
+
+      it "respects the passed worker" do
+        partitioner = ->(key) { key }
+
+        job = described_class.new(worker: TestJobWorker1)
+        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner, worker: TestJobWorker2)
+
+        expect(job.steps).to match(
+          [
+            an_object_having_attributes(
+              action: Actions::PARALLELIZE,
+              partitions: 8,
+              partitioner: kind_of(Proc),
+              worker: TestJobWorker2,
+              before: nil,
+              block: kind_of(Proc)
+            ),
+            an_object_having_attributes(
+              action: Actions::MAP_PARTITIONS,
+              partitions: 8,
+              partitioner: partitioner,
+              worker: TestJobWorker2,
+              before: nil,
               block: kind_of(Proc)
             )
           ]

@@ -119,6 +119,86 @@ module Kraps
         expect(store2).to eq("key1" => 9, "key2" => 18, "key3" => 27, "key4" => 36, "key5" => 45, "key6" => 54, "key7" => 63, "key8" => 72, "key9" => 81)
       end
 
+      it "allows to dump and load data" do
+        data = []
+
+        TestRunner.define_method(:call) do
+          job1 = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job1 = job1.parallelize(partitions: 4) do |collector|
+            ("key1".."key9").each { |item| collector.call(item) }
+          end
+
+          job1 = job1.map do |key, _, collector|
+            collector.call(key, key.gsub("key", "").to_i)
+          end
+
+          job1 = job1.dump(prefix: "path/to/dump")
+
+          job2 = Kraps::Job.new(worker: TestRunnerWorker)
+          job2 = job2.load(prefix: "path/to/dump", partitions: 4, partitioner: HashPartitioner.new)
+
+          job2 = job2.each_partition do |partition, pairs|
+            data << [partition, pairs.to_a]
+          end
+
+          [job1, job2]
+        end
+
+        described_class.new(TestRunner).call
+
+        expect(data).to eq(
+          [
+            [0, [["key5", 5]]],
+            [1, [["key1", 1], ["key4", 4], ["key9", 9]]],
+            [2, [["key2", 2], ["key3", 3], ["key7", 7]]],
+            [3, [["key6", 6], ["key8", 8]]]
+          ]
+        )
+      end
+
+      it "correctly resolves the job dependencies even when recursive" do
+        store = {}
+
+        TestRunner.define_method(:call) do
+          job1 = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job1 = job1.parallelize(partitions: 8) { |collector| collector.call(1) }.map do |_, _, collector|
+            ("key1".."key3").each { |item| collector.call(item, 1) }
+          end
+
+          job2 = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job2 = job2.parallelize(partitions: 8) { |collector| collector.call(1) }.map do |_, _, collector|
+            ("key1".."key3").each { |item| collector.call(item, 2) }
+          end
+
+          job2 = job2.combine(job1) do |_, value1, value2|
+            value1 + value2
+          end
+
+          job3 = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job3 = job3.parallelize(partitions: 8) { |collector| collector.call(1) }.map do |_, _, collector|
+            ("key1".."key3").each { |item| collector.call(item, 3) }
+          end
+
+          job3 = job3.combine(job2) do |_, value1, value2|
+            value1 + value2
+          end
+
+          job3.each_partition do |_, pairs|
+            pairs.each do |key, value|
+              store[key] = value
+            end
+          end
+        end
+
+        described_class.new(TestRunner).call
+
+        expect(store).to eq("key1" => 6, "key2" => 6, "key3" => 6)
+      end
+
       it "does not run the same step multiple times" do
         parallelize_calls = 0
         map_calls = 0
@@ -138,6 +218,12 @@ module Kraps
 
             collector.call(key, 1)
             collector.call(key, 1)
+          end
+
+          job = job.map_partitions do |_, pairs, collector|
+            pairs.each do |key, value|
+              collector.call(key, value)
+            end
           end
 
           job = job.reduce do |_key, value1, value2|
