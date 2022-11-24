@@ -43,6 +43,40 @@ module Kraps
         expect(store).to eq("key1" => 3, "key2" => 6, "key3" => 9, "key4" => 12, "key5" => 15, "key6" => 18, "key7" => 21, "key8" => 24, "key9" => 27)
       end
 
+      it "does not matter how many jobs are specified in a step for the outcome to be correct" do
+        store = {}
+
+        TestRunner.define_method(:call) do
+          job = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job = job.parallelize(partitions: 8) do |collector|
+            ("key1".."key9").each { |item| collector.call(item) }
+          end
+
+          job = job.map(jobs: 6) do |key, _, collector|
+            3.times do
+              collector.call(key, key.gsub(/key/, "").to_i)
+            end
+          end
+
+          job = job.reduce(jobs: 7) do |_, value1, value2|
+            value1 + value2
+          end
+
+          job = job.each_partition(jobs: 3) do |_, pairs|
+            pairs.each do |key, value|
+              store[key] = value
+            end
+          end
+
+          job
+        end
+
+        described_class.new(TestRunner).call
+
+        expect(store).to eq("key1" => 3, "key2" => 6, "key3" => 9, "key4" => 12, "key5" => 15, "key6" => 18, "key7" => 21, "key8" => 24, "key9" => 27)
+      end
+
       it "accepts positional and keyword arguments" do
         store = {}
 
@@ -260,8 +294,8 @@ module Kraps
             ["item1", "item2"].each { |item| collector.call(item) }
           end
 
-          job.map { |key, _, collector| collector.call(key, 1) }
-             .reduce { |_key, value1, value2| value1 + value2 }
+          job.map(jobs: 3) { |key, _, collector| collector.call(key, 1) }
+             .reduce(jobs: 2) { |_key, value1, value2| value1 + value2 }
         end
 
         allow_any_instance_of(DistributedJob::Job).to receive(:finished?).and_return(true)
@@ -271,14 +305,42 @@ module Kraps
         expect(enqueuer).to have_received(:call)
           .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "0", klass: "TestRunner", args: [], kwargs: {}, item: "item1"))
           .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "1", klass: "TestRunner", args: [], kwargs: {}, item: "item2"))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", part: "0", klass: "TestRunner", args: [], kwargs: {}, partition: 0))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", part: "1", klass: "TestRunner", args: [], kwargs: {}, partition: 1))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", part: "2", klass: "TestRunner", args: [], kwargs: {}, partition: 2))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", part: "3", klass: "TestRunner", args: [], kwargs: {}, partition: 3))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", part: "0", klass: "TestRunner", args: [], kwargs: {}, partition: 0))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", part: "1", klass: "TestRunner", args: [], kwargs: {}, partition: 1))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", part: "2", klass: "TestRunner", args: [], kwargs: {}, partition: 2))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", part: "3", klass: "TestRunner", args: [], kwargs: {}, partition: 3))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 0))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 1))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 2))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", klass: "TestRunner", args: [], kwargs: {}, worker_index: 0))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", klass: "TestRunner", args: [], kwargs: {}, worker_index: 1))
+      end
+
+      it "caps the number of jobs by the number of partitions" do
+        enqueuer = double
+        allow(enqueuer).to receive(:call)
+
+        Kraps.configure(driver: FakeDriver, redis: RedisConnection, enqueuer: enqueuer)
+
+        allow(SecureRandom).to receive(:hex).and_return("token1", "token2")
+
+        TestRunner.define_method(:call) do
+          job = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job = job.parallelize(partitions: 4) do |collector|
+            ["item1", "item2"].each { |item| collector.call(item) }
+          end
+
+          job.map(jobs: 8) { |key, _, collector| collector.call(key, 1) }
+        end
+
+        allow_any_instance_of(DistributedJob::Job).to receive(:finished?).and_return(true)
+
+        described_class.new(TestRunner).call
+
+        expect(enqueuer).to have_received(:call)
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "0", klass: "TestRunner", args: [], kwargs: {}, item: "item1"))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "1", klass: "TestRunner", args: [], kwargs: {}, item: "item2"))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 0))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 1))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 2))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 3))
       end
 
       it "stops and raises a JobStopped error when a distributed job was stopped" do

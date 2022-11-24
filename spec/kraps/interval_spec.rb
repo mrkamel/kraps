@@ -16,23 +16,6 @@ module Kraps
         interval&.stop
       end
 
-      it "can be signalled to fire" do
-        fired = 0
-
-        interval = Interval.new(3) do
-          fired += 1
-        end
-
-        interval.fire(timeout: 1)
-        interval.fire(timeout: 1)
-
-        interval&.stop
-
-        expect(fired).to eq(2)
-      ensure
-        interval&.stop
-      end
-
       it "can be stopped" do
         interval = Interval.new(3) do
           # nothing

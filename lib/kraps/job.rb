@@ -27,7 +27,7 @@ module Kraps
       end
     end
 
-    def map(partitions: nil, partitioner: nil, worker: @worker, before: nil, &block)
+    def map(partitions: nil, partitioner: nil, jobs: nil, worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do
           @partitions = partitions if partitions
@@ -35,6 +35,7 @@ module Kraps
 
           @steps << Step.new(
             action: Actions::MAP,
+            jobs: [jobs, @partitions].compact.min,
             partitions: @partitions,
             partitioner: @partitioner,
             worker: worker,
@@ -45,7 +46,7 @@ module Kraps
       end
     end
 
-    def map_partitions(partitions: nil, partitioner: nil, worker: @worker, before: nil, &block)
+    def map_partitions(partitions: nil, partitioner: nil, jobs: nil, worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do
           @partitions = partitions if partitions
@@ -53,6 +54,7 @@ module Kraps
 
           @steps << Step.new(
             action: Actions::MAP_PARTITIONS,
+            jobs: [jobs, @partitions].compact.min,
             partitions: @partitions,
             partitioner: @partitioner,
             worker: worker,
@@ -63,11 +65,12 @@ module Kraps
       end
     end
 
-    def reduce(worker: @worker, before: nil, &block)
+    def reduce(jobs: nil, worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do
           @steps << Step.new(
             action: Actions::REDUCE,
+            jobs: [jobs, @partitions].compact.min,
             partitions: @partitions,
             partitioner: @partitioner,
             worker: worker,
@@ -78,11 +81,12 @@ module Kraps
       end
     end
 
-    def combine(other_job, worker: @worker, before: nil, &block)
+    def combine(other_job, jobs: nil, worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do
           @steps << Step.new(
             action: Actions::COMBINE,
+            jobs: [jobs, @partitions].compact.min,
             partitions: @partitions,
             partitioner: @partitioner,
             worker: worker,
@@ -95,11 +99,12 @@ module Kraps
       end
     end
 
-    def each_partition(worker: @worker, before: nil, &block)
+    def each_partition(jobs: nil, worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do
           @steps << Step.new(
             action: Actions::EACH_PARTITION,
+            jobs: [jobs, @partitions].compact.min,
             partitions: @partitions,
             partitioner: @partitioner,
             worker: worker,
@@ -110,8 +115,8 @@ module Kraps
       end
     end
 
-    def repartition(partitions:, partitioner: nil, worker: @worker, before: nil)
-      map(partitions: partitions, partitioner: partitioner, worker: worker, before: before) do |key, value, collector|
+    def repartition(partitions:, jobs: nil, partitioner: nil, worker: @worker, before: nil)
+      map(jobs: jobs, partitions: partitions, partitioner: partitioner, worker: worker, before: before) do |key, value, collector|
         collector.call(key, value)
       end
     end
