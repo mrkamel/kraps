@@ -220,7 +220,7 @@ items are used as keys and the values are set to `nil`.
 * `map`: Maps the key value pairs to other key value pairs
 
 ```ruby
-job.map(jobs: 8, partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |key, value, collector|
+job.map(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker, jobs: 8) do |key, value, collector|
   collector.call("changed #{key}", "changed #{value}")
 end
 ```
@@ -233,7 +233,8 @@ The `jobs` argument can be useful when you need to access an external data
 source, like a relational database and you want to limit the number of workers
 accessing the store concurrently to avoid overloading it. If you don't specify
 it, it will be identical to the number of partitions. It is recommended to only
-use it for steps where you need to throttle the concurrency.
+use it for steps where you need to throttle the concurrency, because it will
+of course slow down the processing.
 
 * `map_partitions`: Maps the key value pairs to other key value pairs, but the
   block receives all data of each partition as an enumerable and sorted by key.
@@ -241,7 +242,7 @@ use it for steps where you need to throttle the concurrency.
   Prefer `map` over `map_partitions` when possible.
 
 ```ruby
-job.map_partitions(jobs: 8, partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |pairs, collector|
+job.map_partitions(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker, jobs: 8) do |pairs, collector|
   pairs.each do |key, value|
     collector.call("changed #{key}", "changed #{value}")
   end
@@ -251,7 +252,7 @@ end
 * `reduce`: Reduces the values of pairs having the same key
 
 ```ruby
-job.reduce(jobs: 8, worker: MyKrapsWorker) do |key, value1, value2|
+job.reduce(worker: MyKrapsWorker, jobs: 8) do |key, value1, value2|
   value1 + value2
 end
 ```
@@ -271,7 +272,7 @@ most of the time, this is not neccessary and the key can simply be ignored.
   passed job result are completely omitted.
 
 ```ruby
-  job.combine(other_job, jobs: 8, worker: MyKrapsWorker) do |key, value1, value2|
+  job.combine(other_job, worker: MyKrapsWorker, jobs: 8) do |key, value1, value2|
     (value1 || {}).merge(value2 || {})
   end
 ```
@@ -285,7 +286,7 @@ since Kraps detects the dependency on its own.
 * `repartition`: Used to change the partitioning
 
 ```ruby
-job.repartition(jobs: 8, partitions: 128, partitioner: partitioner, worker: MyKrapsWorker)
+job.repartition(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker, jobs: 8)
 ```
 
 Repartitions all data into the specified number of partitions and using the

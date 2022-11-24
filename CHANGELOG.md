@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.7.0
+
+* Added a `jobs` option to the actions to limit the concurrency
+  when e.g. accessing external data stores and to avoid overloading
+  them
+
 ## v0.6.0
 
 * Added `map_partitions`
