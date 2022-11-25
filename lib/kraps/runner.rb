@@ -158,7 +158,7 @@ module Kraps
           # to inactivity etc
 
           progress_bar.total = distributed_job.total
-          progress_bar.progress = progress_bar.total - distributed_job.count
+          progress_bar.progress = [progress_bar.total - distributed_job.count, 0].max
         end
 
         if yield_each
