@@ -175,6 +175,8 @@ module Kraps
         end
 
         raise(JobStopped, "The job was stopped") if distributed_job.stopped?
+
+        interval.fire(timeout: 1)
       ensure
         interval&.stop
         progress_bar&.stop
