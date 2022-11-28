@@ -24,6 +24,7 @@ jobs:
         key: ${{ hashFiles('Gemfile.lock') }}-${{ matrix.ruby }}
     - run: |
         gem install bundler
-        bundle install --path=vendor/bundler
+        bundle config set --local path "vendor/bundler"
+        bundle install
         bundle exec rspec
         bundle exec rubocop
