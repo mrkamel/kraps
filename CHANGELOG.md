@@ -5,6 +5,8 @@
 * Added a `jobs` option to the actions to limit the concurrency
   when e.g. accessing external data stores and to avoid overloading
   them
+* Added a queue using redis for the jobs to avoid starving workers
+* Removed `distributed_job` dependency
 
 ## v0.6.0
 

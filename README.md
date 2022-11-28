@@ -432,8 +432,6 @@ The API of the driver is:
 Kraps is built on top of
 [map-reduce-ruby](https://github.com/mrkamel/map-reduce-ruby) for the
 map/reduce framework,
-[distributed_job](https://github.com/mrkamel/distributed_job)
-to keep track of the job/step status,
 [attachie](https://github.com/mrkamel/attachie) to interact with the storage
 layer (s3),
 [ruby-progressbar](https://github.com/jfelchner/ruby-progressbar) to

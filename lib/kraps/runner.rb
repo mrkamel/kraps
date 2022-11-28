@@ -45,54 +45,35 @@ module Kraps
 
       def perform_parallelize
         enum = Enumerator.new do |yielder|
-          collector = proc { |item| yielder << item }
+          collector = proc { |item| yielder << { item: item } }
 
           @step.block.call(collector)
         end
 
-        with_distributed_job do |distributed_job|
-          push_and_wait(distributed_job, enum, yield_each: true) do |item, part|
-            enqueue(token: distributed_job.token, part: part, item: item)
-          end
+        token = push_and_wait(enum: enum)
 
-          Frame.new(token: distributed_job.token, partitions: @step.partitions)
-        end
+        Frame.new(token: token, partitions: @step.partitions)
       end
 
       def perform_map
-        with_distributed_job do |distributed_job|
-          push_and_wait(distributed_job, 0...@frame.partitions, yield_each: false) do
-            (0...@step.jobs).each do |worker_index|
-              enqueue(token: distributed_job.token, worker_index: worker_index)
-            end
-          end
+        enum = (0...@frame.partitions).map { |partition| { partition: partition } }
+        token = push_and_wait(job_count: @step.jobs, enum: enum)
 
-          Frame.new(token: distributed_job.token, partitions: @step.partitions)
-        end
+        Frame.new(token: token, partitions: @step.partitions)
       end
 
       def perform_map_partitions
-        with_distributed_job do |distributed_job|
-          push_and_wait(distributed_job, 0...@frame.partitions, yield_each: false) do
-            (0...@step.jobs).each do |worker_index|
-              enqueue(token: distributed_job.token, worker_index: worker_index)
-            end
-          end
+        enum = (0...@frame.partitions).map { |partition| { partition: partition } }
+        token = push_and_wait(job_count: @step.jobs, enum: enum)
 
-          Frame.new(token: distributed_job.token, partitions: @step.partitions)
-        end
+        Frame.new(token: token, partitions: @step.partitions)
       end
 
       def perform_reduce
-        with_distributed_job do |distributed_job|
-          push_and_wait(distributed_job, 0...@frame.partitions, yield_each: false) do
-            (0...@step.jobs).each do |worker_index|
-              enqueue(token: distributed_job.token, worker_index: worker_index)
-            end
-          end
+        enum = (0...@frame.partitions).map { |partition| { partition: partition } }
+        token = push_and_wait(job_count: @step.jobs, enum: enum)
 
-          Frame.new(token: distributed_job.token, partitions: @step.partitions)
-        end
+        Frame.new(token: token, partitions: @step.partitions)
       end
 
       def perform_combine
@@ -101,83 +82,61 @@ module Kraps
 
         raise(IncompatibleFrame, "Incompatible number of partitions") if combine_step.partitions != @step.partitions
 
-        with_distributed_job do |distributed_job|
-          push_and_wait(distributed_job, 0...@frame.partitions, yield_each: false) do
-            (0...@step.jobs).each do |worker_index|
-              enqueue(token: distributed_job.token, worker_index: worker_index, combine_frame: combine_step.frame.to_h)
-            end
-          end
-
-          Frame.new(token: distributed_job.token, partitions: @step.partitions)
+        enum = (0...@frame.partitions).map do |partition|
+          { partition: partition, combine_frame: combine_step.frame.to_h }
         end
+
+        token = push_and_wait(job_count: @step.jobs, enum: enum)
+
+        Frame.new(token: token, partitions: @step.partitions)
       end
 
       def perform_each_partition
-        with_distributed_job do |distributed_job|
-          push_and_wait(distributed_job, 0...@frame.partitions, yield_each: false) do
-            (0...@step.jobs).each do |worker_index|
-              enqueue(token: distributed_job.token, worker_index: worker_index)
-            end
-          end
+        enum = (0...@frame.partitions).map { |partition| { partition: partition } }
+        push_and_wait(job_count: @step.jobs, enum: enum)
 
-          @frame
-        end
+        @frame
       end
 
-      def enqueue(token:, **rest)
-        Kraps.enqueuer.call(
-          @step.worker,
-          JSON.generate(
-            job_index: @job_index,
-            step_index: @step_index,
-            frame: @frame.to_h,
-            token: token,
-            klass: @klass,
-            args: @args,
-            kwargs: @kwargs,
-            **rest
-          )
-        )
-      end
+      def push_and_wait(enum:, job_count: nil)
+        redis_queue = RedisQueue.new(redis: Kraps.redis, token: SecureRandom.hex, namespace: Kraps.namespace, ttl: Kraps.job_ttl)
+        progress_bar = build_progress_bar("#{@klass}: job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, token #{redis_queue.token}, %a, %c/%C (%p%) => #{@step.action}")
 
-      def with_distributed_job
-        distributed_job = Kraps.distributed_job_client.build(token: SecureRandom.hex)
-
-        yield(distributed_job)
-      rescue Interrupt
-        distributed_job&.stop
-        raise
-      end
-
-      def push_and_wait(distributed_job, enum, yield_each:, &block)
-        progress_bar = build_progress_bar("#{@klass}: job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, token #{distributed_job.token}, %a, %c/%C (%p%) => #{@step.action}")
+        total = 0
 
         interval = Interval.new(1) do
           # The interval is used to continously update the progress bar even
           # when push_all is used and to avoid sessions being terminated due
           # to inactivity etc
 
-          progress_bar.total = distributed_job.total
-          progress_bar.progress = [progress_bar.total - distributed_job.count, 0].max
+          progress_bar.total = total
+          progress_bar.progress = [progress_bar.total - redis_queue.size, 0].max
         end
 
-        if yield_each
-          distributed_job.push_each(enum, &block)
-        else
-          distributed_job.push_all(enum)
-          yield
+        enum.each_with_index do |item, part|
+          total += 1
+
+          redis_queue.enqueue(item.merge(part: part))
+        end
+
+        (job_count || total).times do
+          Kraps.enqueuer.call(@step.worker, JSON.generate(job_index: @job_index, step_index: @step_index, frame: @frame.to_h, token: redis_queue.token, klass: @klass, args: @args, kwargs: @kwargs))
         end
 
         loop do
-          break if distributed_job.finished? || distributed_job.stopped?
+          break if redis_queue.size.zero?
+          break if redis_queue.stopped?
 
           sleep(1)
         end
 
-        raise(JobStopped, "The job was stopped") if distributed_job.stopped?
+        raise(JobStopped, "The job was stopped") if redis_queue.stopped?
 
         interval.fire(timeout: 1)
+
+        redis_queue.token
       ensure
+        redis_queue&.stop
         interval&.stop
         progress_bar&.stop
       end

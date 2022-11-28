@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    kraps (0.7.0)
+    kraps (0.8.0)
       attachie
       distributed_job
       map-reduce-ruby (>= 3.0.0)
@@ -62,7 +62,7 @@ GEM
     rake (13.0.6)
     redis (5.0.5)
       redis-client (>= 0.9.0)
-    redis-client (0.11.1)
+    redis-client (0.11.2)
       connection_pool
     regexp_parser (2.6.0)
     rexml (3.2.5)

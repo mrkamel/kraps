@@ -280,8 +280,8 @@ module Kraps
       end
 
       it "enqueues the worker jobs using the configured enqueuer" do
-        enqueuer = double
-        allow(enqueuer).to receive(:call)
+        enqueuer = Kraps.enqueuer
+        allow(enqueuer).to receive(:call).and_call_original
 
         Kraps.configure(driver: FakeDriver, redis: RedisConnection, enqueuer: enqueuer)
 
@@ -298,23 +298,18 @@ module Kraps
              .reduce(jobs: 2) { |_key, value1, value2| value1 + value2 }
         end
 
-        allow_any_instance_of(DistributedJob::Job).to receive(:finished?).and_return(true)
-
         described_class.new(TestRunner).call
 
         expect(enqueuer).to have_received(:call)
           .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "0", klass: "TestRunner", args: [], kwargs: {}, item: "item1"))
           .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "1", klass: "TestRunner", args: [], kwargs: {}, item: "item2"))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 0))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 1))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 2))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", klass: "TestRunner", args: [], kwargs: {}, worker_index: 0))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", klass: "TestRunner", args: [], kwargs: {}, worker_index: 1))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {})).exactly(3).times
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 2, frame: { token: "token2", partitions: 4 }, token: "token3", klass: "TestRunner", args: [], kwargs: {})).exactly(2).times
       end
 
       it "caps the number of jobs by the number of partitions" do
-        enqueuer = double
-        allow(enqueuer).to receive(:call)
+        enqueuer = Kraps.enqueuer
+        allow(enqueuer).to receive(:call).and_call_original
 
         Kraps.configure(driver: FakeDriver, redis: RedisConnection, enqueuer: enqueuer)
 
@@ -330,21 +325,16 @@ module Kraps
           job.map(jobs: 8) { |key, _, collector| collector.call(key, 1) }
         end
 
-        allow_any_instance_of(DistributedJob::Job).to receive(:finished?).and_return(true)
-
         described_class.new(TestRunner).call
 
         expect(enqueuer).to have_received(:call)
           .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "0", klass: "TestRunner", args: [], kwargs: {}, item: "item1"))
           .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 0, frame: {}, token: "token1", part: "1", klass: "TestRunner", args: [], kwargs: {}, item: "item2"))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 0))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 1))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 2))
-          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {}, worker_index: 3))
+          .with(TestRunnerWorker, JSON.generate(job_index: 0, step_index: 1, frame: { token: "token1", partitions: 4 }, token: "token2", klass: "TestRunner", args: [], kwargs: {})).exactly(4).times
       end
 
       it "stops and raises a JobStopped error when a distributed job was stopped" do
-        allow_any_instance_of(DistributedJob::Job).to receive(:stopped?).and_return(true)
+        allow_any_instance_of(RedisQueue).to receive(:stopped?).and_return(true)
 
         TestRunner.define_method(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
@@ -361,8 +351,8 @@ module Kraps
       end
 
       it "stops the distributed job when an interrupt exception is raised" do
-        distributed_job = Kraps.distributed_job_client.build(token: SecureRandom.hex)
-        allow(Kraps.distributed_job_client).to receive(:build).and_return(distributed_job)
+        redis_queue = RedisQueue.new(token: SecureRandom.hex, redis: Kraps.redis, namespace: Kraps.namespace, ttl: 60)
+        allow(RedisQueue).to receive(:new).and_return(redis_queue)
         allow(ProgressBar).to receive(:create).and_raise(Interrupt)
 
         TestRunner.define_method(:call) do
@@ -370,7 +360,7 @@ module Kraps
         end
 
         expect { described_class.new(TestRunner).call }.to raise_error(Interrupt)
-        expect(distributed_job.stopped?).to eq(true)
+        expect(redis_queue.stopped?).to eq(true)
       end
 
       it "shows a progress bar" do

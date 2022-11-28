@@ -6,7 +6,7 @@ module Kraps
       described_class.new(JSON.generate(args), memory_limit: memory_limit, chunk_limit: chunk_limit, concurrency: concurrency, **rest)
     end
 
-    let(:distributed_job) { Kraps.distributed_job_client.build(token: "token") }
+    let(:redis_queue) { RedisQueue.new(token: "token", redis: Kraps.redis, namespace: Kraps.namespace, ttl: 60) }
 
     it "executes the specified before block" do
       before_called = false
@@ -16,17 +16,18 @@ module Kraps
         Job.new(worker: TestWorker).parallelize(partitions: 8, before: before) {}
       end
 
+      redis_queue.enqueue(item: "item1")
+
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           part: "0",
           action: Actions::PARALLELIZE,
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 0,
-          item: "item1"
+          step_index: 0
         }
       ).call
 
@@ -40,17 +41,18 @@ module Kraps
         end
       end
 
+      redis_queue.enqueue(item: "item1", part: 0)
+
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           part: "0",
           action: Actions::PARALLELIZE,
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 0,
-          item: "item1"
+          step_index: 0
         }
       ).call
 
@@ -88,19 +90,21 @@ module Kraps
       Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk2)
       Kraps.driver.store("prefix/previous_token/2/chunk.0.json", chunk3)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+      redis_queue.enqueue(partition: 2)
+      redis_queue.enqueue(partition: 3)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::MAP,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 2,
-          worker_index: 0
+          step_index: 2
         }
       ).call
 
@@ -166,24 +170,32 @@ module Kraps
       Kraps.driver.store("prefix/previous_token/0/chunk.0.json", chunk1)
       Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk2)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+      redis_queue.enqueue(partition: 2)
+      redis_queue.enqueue(partition: 3)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::MAP,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 1,
-          worker_index: 0
+          step_index: 1
         }
       ).call
 
       expect(Kraps.driver.list.to_a).to eq(
-        ["prefix/previous_token/0/chunk.0.json", "prefix/previous_token/0/chunk.1.json", "prefix/token/0/chunk.0.json", "prefix/token/1/chunk.0.json", "prefix/token/3/chunk.0.json"]
+        [
+          "prefix/previous_token/0/chunk.0.json",
+          "prefix/previous_token/0/chunk.1.json",
+          "prefix/token/0/chunk.0.json",
+          "prefix/token/1/chunk.0.json",
+          "prefix/token/3/chunk.0.json"
+        ]
       )
       expect(Kraps.driver.value("prefix/token/0/chunk.0.json").strip).to eq(
         [JSON.generate(["item1a", 2]), JSON.generate(["item1b", 2]), JSON.generate(["item3c", 1])].join("\n")
@@ -235,26 +247,30 @@ module Kraps
       Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk2)
       Kraps.driver.store("prefix/previous_token/2/chunk.0.json", chunk3)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+      redis_queue.enqueue(partition: 2)
+      redis_queue.enqueue(partition: 3)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::MAP_PARTITIONS,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 2,
-          worker_index: 0
+          step_index: 2
         }
       ).call
 
       expect(partitions).to eq(
         [
           [0, [["item1", 1], ["item1", 1], ["item2", 1], ["item2", 1], ["item3", 1], ["item3", 1], ["item4", 1]]],
-          [2, [["item3", 1], ["item4", 1], ["item5", 1]]]
+          [1, []],
+          [2, [["item3", 1], ["item4", 1], ["item5", 1]]],
+          [3, []]
         ]
       )
 
@@ -322,19 +338,21 @@ module Kraps
       Kraps.driver.store("prefix/previous_token/0/chunk.0.json", chunk1)
       Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk2)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+      redis_queue.enqueue(partition: 2)
+      redis_queue.enqueue(partition: 3)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::MAP,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 1,
-          worker_index: 0
+          step_index: 1
         }
       ).call
 
@@ -383,19 +401,21 @@ module Kraps
       Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk2)
       Kraps.driver.store("prefix/previous_token/2/chunk.0.json", chunk3)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+      redis_queue.enqueue(partition: 2)
+      redis_queue.enqueue(partition: 3)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::REDUCE,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 2,
-          worker_index: 0
+          step_index: 2
         }
       ).call
 
@@ -405,14 +425,22 @@ module Kraps
           "prefix/previous_token/0/chunk.1.json",
           "prefix/previous_token/2/chunk.0.json",
           "prefix/token/0/chunk.0.json",
-          "prefix/token/2/chunk.2.json"
+          "prefix/token/1/chunk.1.json",
+          "prefix/token/2/chunk.2.json",
+          "prefix/token/3/chunk.3.json"
         ]
       )
       expect(Kraps.driver.value("prefix/token/0/chunk.0.json").strip).to eq(
         [JSON.generate(["item1", 3]), JSON.generate(["item2", 4]), JSON.generate(["item3", 6]), JSON.generate(["item4", 2])].join("\n")
       )
+      expect(Kraps.driver.value("prefix/token/1/chunk.1.json").strip).to eq(
+        [].join("\n")
+      )
       expect(Kraps.driver.value("prefix/token/2/chunk.2.json").strip).to eq(
         [JSON.generate(["item3", 1]), JSON.generate(["item4", 2]), JSON.generate(["item5", 3])].join("\n")
+      )
+      expect(Kraps.driver.value("prefix/token/3/chunk.3.json").strip).to eq(
+        [].join("\n")
       )
     end
 
@@ -450,26 +478,30 @@ module Kraps
       Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk2)
       Kraps.driver.store("prefix/previous_token/2/chunk.0.json", chunk3)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+      redis_queue.enqueue(partition: 2)
+      redis_queue.enqueue(partition: 3)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::EACH_PARTITION,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 1,
-          worker_index: 0
+          step_index: 1
         }
       ).call
 
       expect(partitions).to eq(
         [
           [0, [["item1", 1], ["item1", 2], ["item2", 1], ["item2", 3], ["item3", 2], ["item3", 4], ["item4", 2]]],
-          [2, [["item3", 1], ["item4", 2], ["item5", 3]]]
+          [1, []],
+          [2, [["item3", 1], ["item4", 2], ["item5", 3]]],
+          [3, []]
         ]
       )
     end
@@ -534,20 +566,21 @@ module Kraps
       Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk5)
       Kraps.driver.store("prefix/previous_token/2/chunk.0.json", chunk6)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0, combine_frame: { token: "combine_token", partitions: 4 })
+      redis_queue.enqueue(partition: 1, combine_frame: { token: "combine_token", partitions: 4 })
+      redis_queue.enqueue(partition: 2, combine_frame: { token: "combine_token", partitions: 4 })
+      redis_queue.enqueue(partition: 3, combine_frame: { token: "combine_token", partitions: 4 })
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::COMBINE,
           frame: { token: "previous_token", partitions: 4 },
-          combine_frame: { token: "combine_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 1,
-          step_index: 2,
-          worker_index: 0
+          step_index: 2
         }
       ).call(retries: 0)
 
@@ -604,15 +637,14 @@ module Kraps
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           part: "0",
           action: Actions::PARALLELIZE,
           klass: "TestWorker",
           args: ["arg1", "arg2"],
           kwargs: { "kwarg1" => "value1", "kwarg2" => "value2" },
           job_index: 0,
-          step_index: 0,
-          item: "item"
+          step_index: 0
         }
       ).call
 
@@ -629,7 +661,7 @@ module Kraps
 
       worker = build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           part: "0",
           action: Actions::MAP,
           frame: { token: "previous_token", partitions: 4 },
@@ -637,8 +669,7 @@ module Kraps
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 1,
-          partition: 0
+          step_index: 1
         }
       )
 
@@ -663,19 +694,21 @@ module Kraps
 
       Kraps.driver.store("prefix/previous_token/0/chunk.0.json", chunk)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+      redis_queue.enqueue(partition: 2)
+      redis_queue.enqueue(partition: 3)
 
       worker = build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::MAP,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 1,
-          worker_index: 0
+          step_index: 1
         },
         logger: logger
       )
@@ -686,31 +719,7 @@ module Kraps
 
       expect(worker).to have_received(:sleep).with(5).exactly(5).times
       expect(logger).to have_received(:error).with(RuntimeError).exactly(5).times
-      expect(distributed_job.stopped?).to eq(true)
-    end
-
-    it "marks the distributed job part as done" do
-      TestWorker.define_method(:call) do
-        Job.new(worker: TestWorker).parallelize(partitions: 4) {}
-      end
-
-      distributed_job.push_all([0, 1, 2, 3])
-
-      build_worker(
-        args: {
-          token: distributed_job.token,
-          part: "0",
-          action: Actions::PARALLELIZE,
-          klass: "TestWorker",
-          args: [],
-          kwargs: {},
-          job_index: 0,
-          step_index: 0,
-          item: "item1"
-        }
-      ).call
-
-      expect(distributed_job.open_parts.to_a).to eq(["1", "2", "3"])
+      expect(redis_queue.stopped?).to eq(true)
     end
 
     it "respects the specified memory limit in parallelize" do
@@ -720,17 +729,18 @@ module Kraps
 
       allow(MapReduce::Mapper).to receive(:new).and_call_original
 
+      redis_queue.enqueue(partition: 0)
+
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           part: "0",
           action: Actions::PARALLELIZE,
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 0,
-          item: "item1"
+          step_index: 0
         },
         memory_limit: 5000
       ).call
@@ -755,19 +765,18 @@ module Kraps
 
       Kraps.driver.store("prefix/previous_token/0/chunk.0.json", chunk)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::MAP,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 1,
-          worker_index: 0
+          step_index: 1
         },
         memory_limit: 5000
       ).call
@@ -795,19 +804,18 @@ module Kraps
       allow(reducer).to receive(:reduce)
       allow(MapReduce::Reducer).to receive(:new).and_return(reducer)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::REDUCE,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 2,
-          worker_index: 0
+          step_index: 2
         },
         chunk_limit: 8
       ).call
@@ -832,19 +840,18 @@ module Kraps
 
       Kraps.driver.store("prefix/previous_token/0/chunk.0.json", chunk)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
 
       build_worker(
         args: {
-          token: distributed_job.token,
+          token: redis_queue.token,
           action: Actions::MAP,
           frame: { token: "previous_token", partitions: 4 },
           klass: "TestWorker",
           args: [],
           kwargs: {},
           job_index: 0,
-          step_index: 1,
-          worker_index: 0
+          step_index: 1
         },
         concurrency: 4
       ).call
@@ -852,7 +859,7 @@ module Kraps
       expect(Parallelizer).to have_received(:each).with(anything, 4).exactly(2).times
     end
 
-    it "stops the distributed job on continous errors" do
+    it "stops the redis queue on continous errors" do
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
@@ -869,20 +876,22 @@ module Kraps
 
       Kraps.driver.store("prefix/previous_token/0/chunk.0.json", chunk)
 
-      distributed_job.push_all([0, 1, 2, 3])
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+      redis_queue.enqueue(partition: 2)
+      redis_queue.enqueue(partition: 3)
 
       expect do
         build_worker(
           args: {
-            token: distributed_job.token,
+            token: redis_queue.token,
             action: Actions::MAP,
             frame: { token: "previous_token", partitions: 4 },
             klass: "TestWorker",
             args: [],
             kwargs: {},
             job_index: 0,
-            step_index: 1,
-            worker_index: 0
+            step_index: 1
           },
           concurrency: 4
         ).call(retries: 0)
@@ -915,7 +924,7 @@ module Kraps
       expect do
         worker = build_worker(
           args: {
-            token: distributed_job.token,
+            token: redis_queue.token,
             part: "0",
             action: Actions::MAP,
             frame: { token: "previous_token", partitions: 4 },
@@ -923,8 +932,7 @@ module Kraps
             args: [],
             kwargs: {},
             job_index: 0,
-            step_index: 1,
-            partition: 0
+            step_index: 1
           },
           concurrency: 4
         )
