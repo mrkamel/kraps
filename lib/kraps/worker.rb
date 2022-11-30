@@ -244,6 +244,7 @@ module Kraps
           redis_queue.stop
           raise
         end
+
         @logger.error(e)
 
         sleep(5)
@@ -256,11 +257,10 @@ module Kraps
     def dequeue
       loop do
         break if redis_queue.stopped?
+        break if redis_queue.size.zero?
 
         redis_queue.dequeue do |payload|
-          return unless payload
-
-          yield(payload)
+          payload ? yield(payload) : sleep(1)
         end
       end
     end

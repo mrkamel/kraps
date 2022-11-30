@@ -1,5 +1,7 @@
 module Kraps
   class RedisQueue
+    VISIBILITY_TIMEOUT = 60
+
     attr_reader :token
 
     def initialize(redis:, token:, namespace:, ttl:)
@@ -39,7 +41,7 @@ module Kraps
 
     def dequeue
       @dequeue_script ||= <<~SCRIPT
-        local queue_key, pending_key, status_key, ttl = ARGV[1], ARGV[2], ARGV[3], tonumber(ARGV[4])
+        local queue_key, pending_key, status_key, ttl, visibility_timeout = ARGV[1], ARGV[2], ARGV[3], tonumber(ARGV[4]), tonumber(ARGV[5])
 
         local zitem = redis.call('zrange', pending_key, 0, 0, 'WITHSCORES')
         local job = zitem[1]
@@ -54,13 +56,13 @@ module Kraps
 
         if not job then return nil end
 
-        redis.call('zadd', pending_key, tonumber(redis.call('time')[1]) + 300, job)
+        redis.call('zadd', pending_key, tonumber(redis.call('time')[1]) + visibility_timeout, job)
         redis.call('expire', pending_key, ttl)
 
         return job
       SCRIPT
 
-      job = @redis.eval(@dequeue_script, argv: [redis_queue_key, redis_pending_key, redis_status_key, @ttl])
+      job = @redis.eval(@dequeue_script, argv: [redis_queue_key, redis_pending_key, redis_status_key, @ttl, VISIBILITY_TIMEOUT])
 
       unless job
         yield(nil)
@@ -116,9 +118,9 @@ module Kraps
 
     def keep_alive(job)
       @keep_alive_script ||= <<~SCRIPT
-        local queue_key, pending_key, status_key, ttl, job = ARGV[1], ARGV[2], ARGV[3], tonumber(ARGV[4]), ARGV[5]
+        local queue_key, pending_key, status_key, ttl, job, visibility_timeout = ARGV[1], ARGV[2], ARGV[3], tonumber(ARGV[4]), ARGV[5], tonumber(ARGV[6])
 
-        redis.call('zadd', pending_key, tonumber(redis.call('time')[1]) + 300, job)
+        redis.call('zadd', pending_key, tonumber(redis.call('time')[1]) + visibility_timeout, job)
 
         redis.call('expire', queue_key, ttl)
         redis.call('expire', pending_key, ttl)
@@ -126,7 +128,7 @@ module Kraps
       SCRIPT
 
       interval = Interval.new(5) do
-        @redis.eval(@keep_alive_script, argv: [redis_queue_key, redis_pending_key, redis_status_key, @ttl, job])
+        @redis.eval(@keep_alive_script, argv: [redis_queue_key, redis_pending_key, redis_status_key, @ttl, job, VISIBILITY_TIMEOUT])
       end
 
       yield

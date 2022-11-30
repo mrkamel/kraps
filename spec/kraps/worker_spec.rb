@@ -722,6 +722,42 @@ module Kraps
       expect(redis_queue.stopped?).to eq(true)
     end
 
+    it "does not stop until the queue is empty or stopped" do
+      TestWorker.define_method(:call) do
+        Job.new(worker: TestWorker)
+           .parallelize(partitions: 4) {}
+           .map {}
+      end
+
+      redis_queue.enqueue(partition: 0)
+      redis_queue.enqueue(partition: 1)
+
+      worker = build_worker(
+        args: {
+          token: redis_queue.token,
+          action: Actions::MAP,
+          frame: { token: "previous_token", partitions: 4 },
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 0,
+          step_index: 1
+        }
+      )
+
+      allow(worker).to receive(:sleep)
+
+      thread = Thread.new do
+        redis_queue.dequeue do
+          sleep 1
+        end
+      end
+
+      worker.call(retries: 5)
+
+      expect(thread).not_to be_alive
+    end
+
     it "respects the specified memory limit in parallelize" do
       TestWorker.define_method(:call) do
         Job.new(worker: TestWorker).parallelize(partitions: 4) {}
