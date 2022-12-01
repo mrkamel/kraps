@@ -30,7 +30,7 @@ Kraps.configure(
   driver: Kraps::Drivers::S3Driver.new(s3_client: Aws::S3::Client.new("..."), bucket: "some-bucket", prefix: "temp/kraps/"),
   redis: Redis.new,
   namespace: "my-application", # An optional namespace to be used for redis keys, default: nil
-  job_ttl: 24.hours, # Job information in redis will automatically be removed after this amount of time, default: 24 hours
+  job_ttl: 7.days, # Job information in redis will automatically be removed after this amount of time, default: 7 days
   show_progress: true # Whether or not to show the progress in the terminal when executing jobs, default: true
   enqueuer: ->(worker, json) { worker.perform_async(json) } # Allows to customize the enqueueing of worker jobs
 )

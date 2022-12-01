@@ -16,22 +16,29 @@ RSpec.describe Kraps do
       described_class.configure(driver: driver, redis: redis, namespace: namespace, job_ttl: job_ttl, enqueuer: enqueuer)
     end
 
-    it "sets driver, redis, namespace, job_ttl and enqueuer" do
-      described_class.configure(driver: "driver", redis: "redis", namespace: "namespace", job_ttl: 1, enqueuer: "enqueuer")
+    it "sets driver, redis, namespace, job_ttl, show_progress and enqueuer" do
+      described_class.configure(driver: "driver", redis: "redis", namespace: "namespace", job_ttl: 1, show_progress: true, enqueuer: "enqueuer")
 
       expect(described_class).to have_attributes(
         driver: "driver",
         redis: "redis",
         namespace: "namespace",
         job_ttl: 1,
+        show_progress?: true,
         enqueuer: "enqueuer"
       )
     end
 
-    it "applies #to_i on the job_ttl" do
+    it "applies #to_i on the job ttl" do
       described_class.configure(driver: described_class.driver, job_ttl: "300")
 
       expect(described_class.job_ttl).to eq(300)
+    end
+
+    it "applies a default job ttl of 4 days" do
+      described_class.configure(driver: "driver")
+
+      expect(described_class.job_ttl).to eq(4 * 24 * 60 * 60)
     end
   end
 end

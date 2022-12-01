@@ -27,7 +27,7 @@ module Kraps
   class JobStopped < Error; end
   class IncompatibleFrame < Error; end
 
-  def self.configure(driver:, redis: Redis.new, namespace: nil, job_ttl: 24 * 60 * 60, show_progress: true, enqueuer: ->(worker, json) { worker.perform_async(json) })
+  def self.configure(driver:, redis: Redis.new, namespace: nil, job_ttl: 4 * 24 * 60 * 60, show_progress: true, enqueuer: ->(worker, json) { worker.perform_async(json) })
     @driver = driver
     @redis = redis
     @namespace = namespace
