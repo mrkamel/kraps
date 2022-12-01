@@ -350,7 +350,7 @@ module Kraps
         expect { described_class.new(TestRunner).call }.to raise_error(JobStopped, "The job was stopped")
       end
 
-      it "stops the distributed job when an interrupt exception is raised" do
+      it "stops the distributed job when e.g. an interrupt exception is raised" do
         redis_queue = RedisQueue.new(token: SecureRandom.hex, redis: Kraps.redis, namespace: Kraps.namespace, ttl: 60)
         allow(RedisQueue).to receive(:new).and_return(redis_queue)
         allow(ProgressBar).to receive(:create).and_raise(Interrupt)

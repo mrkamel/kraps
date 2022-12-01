@@ -120,6 +120,8 @@ module Kraps
         end
 
         (job_count || total).times do
+          break if redis_queue.stopped?
+
           Kraps.enqueuer.call(@step.worker, JSON.generate(job_index: @job_index, step_index: @step_index, frame: @frame.to_h, token: redis_queue.token, klass: @klass, args: @args, kwargs: @kwargs))
         end
 
