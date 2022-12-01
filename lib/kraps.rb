@@ -31,7 +31,7 @@ module Kraps
     @driver = driver
     @redis = redis
     @namespace = namespace
-    @job_ttl = job_ttl
+    @job_ttl = job_ttl.to_i
     @show_progress = show_progress
     @enqueuer = enqueuer
   end
