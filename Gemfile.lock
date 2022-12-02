@@ -1,9 +1,8 @@
 PATH
   remote: .
   specs:
-    kraps (0.6.0)
+    kraps (0.7.0)
       attachie
-      distributed_job
       map-reduce-ruby (>= 3.0.0)
       redis
       ruby-progressbar
@@ -41,8 +40,6 @@ GEM
     concurrent-ruby (1.1.10)
     connection_pool (2.3.0)
     diff-lcs (1.5.0)
-    distributed_job (3.1.0)
-      redis (>= 4.1.0)
     i18n (1.12.0)
       concurrent-ruby (~> 1.0)
     jmespath (1.6.1)
@@ -62,7 +59,7 @@ GEM
     rake (13.0.6)
     redis (5.0.5)
       redis-client (>= 0.9.0)
-    redis-client (0.11.1)
+    redis-client (0.11.2)
       connection_pool
     regexp_parser (2.6.0)
     rexml (3.2.5)

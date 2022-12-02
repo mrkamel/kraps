@@ -1,4 +1,3 @@
-require "distributed_job"
 require "ruby-progressbar"
 require "ruby-progressbar/outputs/null"
 require "map_reduce"
@@ -9,6 +8,7 @@ require_relative "kraps/drivers"
 require_relative "kraps/actions"
 require_relative "kraps/parallelizer"
 require_relative "kraps/hash_partitioner"
+require_relative "kraps/redis_queue"
 require_relative "kraps/temp_path"
 require_relative "kraps/temp_paths"
 require_relative "kraps/timeout_queue"
@@ -27,9 +27,11 @@ module Kraps
   class JobStopped < Error; end
   class IncompatibleFrame < Error; end
 
-  def self.configure(driver:, redis: Redis.new, namespace: nil, job_ttl: 24 * 60 * 60, show_progress: true, enqueuer: ->(worker, json) { worker.perform_async(json) })
+  def self.configure(driver:, redis: Redis.new, namespace: nil, job_ttl: 4 * 24 * 60 * 60, show_progress: true, enqueuer: ->(worker, json) { worker.perform_async(json) })
     @driver = driver
-    @distributed_job_client = DistributedJob::Client.new(redis: redis, namespace: namespace, default_ttl: job_ttl)
+    @redis = redis
+    @namespace = namespace
+    @job_ttl = job_ttl.to_i
     @show_progress = show_progress
     @enqueuer = enqueuer
   end
@@ -38,8 +40,16 @@ module Kraps
     @driver
   end
 
-  def self.distributed_job_client
-    @distributed_job_client
+  def self.redis
+    @redis
+  end
+
+  def self.namespace
+    @namespace
+  end
+
+  def self.job_ttl
+    @job_ttl
   end
 
   def self.show_progress?

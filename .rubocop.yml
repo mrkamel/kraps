@@ -80,3 +80,6 @@ Style/WordArray:
 
 Style/RedundantEach:
   Enabled: false
+
+Lint/NonLocalExitFromIterator:
+  Enabled: false

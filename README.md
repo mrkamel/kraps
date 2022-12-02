@@ -30,7 +30,7 @@ Kraps.configure(
   driver: Kraps::Drivers::S3Driver.new(s3_client: Aws::S3::Client.new("..."), bucket: "some-bucket", prefix: "temp/kraps/"),
   redis: Redis.new,
   namespace: "my-application", # An optional namespace to be used for redis keys, default: nil
-  job_ttl: 24.hours, # Job information in redis will automatically be removed after this amount of time, default: 24 hours
+  job_ttl: 7.days, # Job information in redis will automatically be removed after this amount of time, default: 4 days
   show_progress: true # Whether or not to show the progress in the terminal when executing jobs, default: true
   enqueuer: ->(worker, json) { worker.perform_async(json) } # Allows to customize the enqueueing of worker jobs
 )
@@ -220,7 +220,7 @@ items are used as keys and the values are set to `nil`.
 * `map`: Maps the key value pairs to other key value pairs
 
 ```ruby
-job.map(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |key, value, collector|
+job.map(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker, jobs: 8) do |key, value, collector|
   collector.call("changed #{key}", "changed #{value}")
 end
 ```
@@ -229,13 +229,21 @@ The block gets each key-value pair passed and the `collector` block can be
 called as often as neccessary. This is also the reason why `map` can not simply
 return the new key-value pair, but the `collector` must be used instead.
 
+The `jobs` argument can be useful when you need to access an external data
+source, like a relational database and you want to limit the number of workers
+accessing the store concurrently to avoid overloading it. If you don't specify
+it, it will be identical to the number of partitions. It is recommended to only
+use it for steps where you need to throttle the concurrency, because it will of
+course slow down the processing. The `jobs` argument only applies to the
+current step. The following steps don't inherit the argument, but reset it.
+
 * `map_partitions`: Maps the key value pairs to other key value pairs, but the
   block receives all data of each partition as an enumerable and sorted by key.
   Please be aware that you should not call `to_a` or similar on the enumerable.
   Prefer `map` over `map_partitions` when possible.
 
 ```ruby
-job.map_partitions(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker) do |pairs, collector|
+job.map_partitions(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker, jobs: 8) do |pairs, collector|
   pairs.each do |key, value|
     collector.call("changed #{key}", "changed #{value}")
   end
@@ -245,7 +253,7 @@ end
 * `reduce`: Reduces the values of pairs having the same key
 
 ```ruby
-job.reduce(worker: MyKrapsWorker) do |key, value1, value2|
+job.reduce(worker: MyKrapsWorker, jobs: 8) do |key, value1, value2|
   value1 + value2
 end
 ```
@@ -265,7 +273,7 @@ most of the time, this is not neccessary and the key can simply be ignored.
   passed job result are completely omitted.
 
 ```ruby
-  job.combine(other_job, worker: MyKrapsWorker) do |key, value1, value2|
+  job.combine(other_job, worker: MyKrapsWorker, jobs: 8) do |key, value1, value2|
     (value1 || {}).merge(value2 || {})
   end
 ```
@@ -279,7 +287,7 @@ since Kraps detects the dependency on its own.
 * `repartition`: Used to change the partitioning
 
 ```ruby
-job.repartition(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker)
+job.repartition(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker, jobs: 8)
 ```
 
 Repartitions all data into the specified number of partitions and using the
@@ -290,7 +298,7 @@ specified partitioner.
   `to_a` or similar on the enumerable.
 
 ```ruby
-job.each_partition do |partition, pairs|
+job.each_partition(jobs: 8) do |partition, pairs|
   pairs.each do |key, value|
     # ...
   end
@@ -379,7 +387,8 @@ jobs only once.
 Kraps ships with an in-memory fake driver for storage, which you can use for
 testing purposes instead of the s3 driver:
 
-```ruby Kraps.configure(
+```ruby
+Kraps.configure(
   driver: Kraps::Drivers::FakeDriver.new(bucket: "kraps"),
   # ...
 ) ```
@@ -425,8 +434,6 @@ The API of the driver is:
 Kraps is built on top of
 [map-reduce-ruby](https://github.com/mrkamel/map-reduce-ruby) for the
 map/reduce framework,
-[distributed_job](https://github.com/mrkamel/distributed_job)
-to keep track of the job/step status,
 [attachie](https://github.com/mrkamel/attachie) to interact with the storage
 layer (s3),
 [ruby-progressbar](https://github.com/jfelchner/ruby-progressbar) to

@@ -76,20 +76,21 @@ module Kraps
         )
       end
 
-      it "respects the passed partitions, partitioner, worker and before" do
+      it "respects the passed jobs, partitions, partitioner, worker and before" do
         block = ->(key, value, collector) { collector.call(key, value) }
         partitioner = ->(key) { key }
         before = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
-        job = job.map(partitions: 16, partitioner: partitioner, worker: TestJobWorker2, before: before, &block)
+        job = job.map(jobs: 4, partitions: 16, partitioner: partitioner, worker: TestJobWorker2, before: before, &block)
 
         expect(job.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
             an_object_having_attributes(
               action: Actions::MAP,
+              jobs: 4,
               partitions: 16,
               partitioner: partitioner,
               worker: TestJobWorker2,
@@ -125,20 +126,21 @@ module Kraps
         )
       end
 
-      it "respects the passed partitions, partitioner, worker and before" do
+      it "respects the passed jobs, partitions, partitioner, worker and before" do
         block = -> {}
         partitioner = ->(key) { key }
         before = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
-        job = job.map_partitions(partitions: 16, partitioner: partitioner, worker: TestJobWorker2, before: before, &block)
+        job = job.map_partitions(jobs: 4, partitions: 16, partitioner: partitioner, worker: TestJobWorker2, before: before, &block)
 
         expect(job.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
             an_object_having_attributes(
               action: Actions::MAP_PARTITIONS,
+              jobs: 4,
               partitions: 16,
               partitioner: partitioner,
               worker: TestJobWorker2,
@@ -175,14 +177,14 @@ module Kraps
         )
       end
 
-      it "respects the passed worker and before" do
+      it "respects the passed jobs, worker and before" do
         block = -> {}
         before = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
         job = job.map { |key, value, collector| collector.call(key, value) }
-        job = job.reduce(before: before, worker: TestJobWorker2, &block)
+        job = job.reduce(jobs: 4, before: before, worker: TestJobWorker2, &block)
 
         expect(job.steps).to match(
           [
@@ -190,6 +192,7 @@ module Kraps
             an_object_having_attributes(action: Actions::MAP),
             an_object_having_attributes(
               action: Actions::REDUCE,
+              jobs: 4,
               partitions: 8,
               partitioner: kind_of(HashPartitioner),
               worker: TestJobWorker2,
@@ -240,7 +243,7 @@ module Kraps
         )
       end
 
-      it "respects the passed worker and before" do
+      it "respects the passed jobs, worker and before" do
         block = -> {}
         before = -> {}
 
@@ -260,13 +263,14 @@ module Kraps
           collector.call("key2", 2)
           collector.call("key3", 1)
         end
-        job2 = job2.combine(job1, worker: TestJobWorker2, before: before, &block)
+        job2 = job2.combine(job1, jobs: 4, worker: TestJobWorker2, before: before, &block)
 
         expect(job2.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
             an_object_having_attributes(
               action: Actions::COMBINE,
+              jobs: 4,
               partitions: 8,
               partitioner: kind_of(HashPartitioner),
               worker: TestJobWorker2,
@@ -306,19 +310,20 @@ module Kraps
         expect(collected).to eq([["key", "value"]])
       end
 
-      it "respects the passed partitioner, worker and before" do
+      it "respects the passed jobs, partitioner, worker and before" do
         partitioner = ->(key) { key }
         before = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
-        job = job.repartition(partitions: 16, partitioner: partitioner, worker: TestJobWorker2, before: before)
+        job = job.repartition(jobs: 4, partitions: 16, partitioner: partitioner, worker: TestJobWorker2, before: before)
 
         expect(job.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
             an_object_having_attributes(
               action: Actions::MAP,
+              jobs: 4,
               partitions: 16,
               partitioner: partitioner,
               worker: TestJobWorker2,
@@ -351,18 +356,19 @@ module Kraps
         )
       end
 
-      it "respects the passed worker and before" do
+      it "respects the passed jobs, worker and before" do
         before = -> {}
 
         job = described_class.new(worker: TestJobWorker1)
         job = job.parallelize(partitions: 8) {}
-        job = job.each_partition(worker: TestJobWorker2, before: before) {}
+        job = job.each_partition(jobs: 4, worker: TestJobWorker2, before: before) {}
 
         expect(job.steps).to match(
           [
             an_object_having_attributes(action: Actions::PARALLELIZE),
             an_object_having_attributes(
               action: Actions::EACH_PARTITION,
+              jobs: 4,
               partitions: 8,
               partitioner: kind_of(HashPartitioner),
               worker: TestJobWorker2,
@@ -455,6 +461,7 @@ module Kraps
           [
             an_object_having_attributes(
               action: Actions::PARALLELIZE,
+              jobs: nil,
               partitions: 8,
               partitioner: kind_of(Proc),
               worker: TestJobWorker2,
@@ -463,6 +470,7 @@ module Kraps
             ),
             an_object_having_attributes(
               action: Actions::MAP_PARTITIONS,
+              jobs: 8,
               partitions: 8,
               partitioner: partitioner,
               worker: TestJobWorker2,
