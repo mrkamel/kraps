@@ -30,12 +30,14 @@ module Kraps
     def map(partitions: nil, partitioner: nil, jobs: nil, worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do
+          jobs = [jobs, @partitions].compact.min
+
           @partitions = partitions if partitions
           @partitioner = partitioner if partitioner
 
           @steps << Step.new(
             action: Actions::MAP,
-            jobs: [jobs, @partitions].compact.min,
+            jobs: jobs,
             partitions: @partitions,
             partitioner: @partitioner,
             worker: worker,
@@ -49,12 +51,14 @@ module Kraps
     def map_partitions(partitions: nil, partitioner: nil, jobs: nil, worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do
+          jobs = [jobs, @partitions].compact.min
+
           @partitions = partitions if partitions
           @partitioner = partitioner if partitioner
 
           @steps << Step.new(
             action: Actions::MAP_PARTITIONS,
-            jobs: [jobs, @partitions].compact.min,
+            jobs: jobs,
             partitions: @partitions,
             partitioner: @partitioner,
             worker: worker,

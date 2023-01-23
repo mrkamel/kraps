@@ -232,10 +232,11 @@ return the new key-value pair, but the `collector` must be used instead.
 The `jobs` argument can be useful when you need to access an external data
 source, like a relational database and you want to limit the number of workers
 accessing the store concurrently to avoid overloading it. If you don't specify
-it, it will be identical to the number of partitions. It is recommended to only
-use it for steps where you need to throttle the concurrency, because it will of
-course slow down the processing. The `jobs` argument only applies to the
-current step. The following steps don't inherit the argument, but reset it.
+it, it will be identical to the number of partitions of the previous step. It
+is recommended to only use it for steps where you need to throttle the
+concurrency, because it will of course slow down the processing. The `jobs`
+argument only applies to the current step. The following steps don't inherit
+the argument, but reset it.
 
 * `map_partitions`: Maps the key value pairs to other key value pairs, but the
   block receives all data of each partition as an enumerable and sorted by key.
