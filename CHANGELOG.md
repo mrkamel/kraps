@@ -3,6 +3,7 @@
 ## v0.8.0
 
 * Use number of partitions of previous step for `jobs` option by default
+* Change `combine` to receive a `collector`
 
 ## v0.7.0
 

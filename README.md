@@ -274,8 +274,8 @@ most of the time, this is not neccessary and the key can simply be ignored.
   passed job result are completely omitted.
 
 ```ruby
-  job.combine(other_job, worker: MyKrapsWorker, jobs: 8) do |key, value1, value2|
-    (value1 || {}).merge(value2 || {})
+  job.combine(other_job, worker: MyKrapsWorker, jobs: 8) do |key, value1, value2, collector|
+    collector.call(key, (value1 || {}).merge(value2 || {}))
   end
 ```
 
