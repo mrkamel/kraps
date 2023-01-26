@@ -139,7 +139,7 @@ module Kraps
       end
     end
 
-    def load(prefix:, partitions:, partitioner:, worker: @worker)
+    def load(prefix:, partitions:, partitioner:, concurrency:, worker: @worker)
       job = parallelize(partitions: partitions, partitioner: proc { |key, _| key }, worker: worker) do |collector|
         (0...partitions).each do |partition|
           collector.call(partition)
@@ -147,20 +147,19 @@ module Kraps
       end
 
       job.map_partitions(partitioner: partitioner, worker: worker) do |partition, _, collector|
-        tempfile = Tempfile.new
+        temp_paths = Downloader.download_all(prefix: File.join(prefix, partition.to_s, "/"), concurrency: concurrency)
 
-        path = File.join(prefix, partition.to_s, "chunk.json")
-        next unless Kraps.driver.exists?(path)
+        temp_paths.each do |temp_path|
+          File.open(temp_path.path) do |stream|
+            stream.each_line do |line|
+              key, value = JSON.parse(line)
 
-        Kraps.driver.download(path, tempfile.path)
-
-        tempfile.each_line do |line|
-          key, value = JSON.parse(line)
-
-          collector.call(key, value)
+              collector.call(key, value)
+            end
+          end
         end
       ensure
-        tempfile&.close(true)
+        temp_paths&.delete
       end
     end
 

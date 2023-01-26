@@ -170,7 +170,7 @@ module Kraps
           job1 = job1.dump(prefix: "path/to/dump")
 
           job2 = Kraps::Job.new(worker: TestRunnerWorker)
-          job2 = job2.load(prefix: "path/to/dump", partitions: 4, partitioner: HashPartitioner.new)
+          job2 = job2.load(prefix: "path/to/dump", partitions: 4, partitioner: HashPartitioner.new, concurrency: 8)
 
           job2 = job2.each_partition do |partition, pairs|
             data << [partition, pairs.to_a]

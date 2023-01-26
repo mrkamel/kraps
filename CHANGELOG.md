@@ -3,7 +3,8 @@
 ## v0.8.0
 
 * Use number of partitions of previous step for `jobs` option by default
-* Change `combine` to receive a `collector`
+* Changed `combine` to receive a `collector`
+* Added mandatory `concurrency` argument to `load`
 
 ## v0.7.0
 

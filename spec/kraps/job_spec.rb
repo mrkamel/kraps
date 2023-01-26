@@ -429,7 +429,7 @@ module Kraps
         partitioner = ->(key) { key }
 
         job = described_class.new(worker: TestJobWorker1)
-        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner)
+        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner, concurrency: 8)
 
         expect(job.steps).to match(
           [
@@ -457,7 +457,7 @@ module Kraps
         partitioner = ->(key) { key }
 
         job = described_class.new(worker: TestJobWorker1)
-        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner, worker: TestJobWorker2)
+        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner, worker: TestJobWorker2, concurrency: 8)
 
         expect(job.steps).to match(
           [
