@@ -7,9 +7,13 @@ jobs:
       fail-fast: false
       matrix:
         ruby: ["2.7", "3.0"]
+        redis:
+          - redis:5.0
+          - redis:6.0
+          - redis:7.0
     services:
       redis:
-        image: redis
+        image: ${{ matrix.redis }}
         ports:
           - 6379:6379
     steps:
