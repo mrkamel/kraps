@@ -157,7 +157,7 @@ module Kraps
       implementation = Object.new
       implementation.define_singleton_method(:map) do |&block|
         combine_method.call(enum1, enum2) do |key, value1, value2|
-          block.call(key, current_step.block.call(key, value1, value2))
+          current_step.block.call(key, value1, value2, block)
         end
       end
 
@@ -270,19 +270,7 @@ module Kraps
     end
 
     def download_all(token:, partition:)
-      temp_paths = TempPaths.new
-
-      files = Kraps.driver.list(prefix: Kraps.driver.with_prefix("#{token}/#{partition}/")).sort
-
-      temp_paths_index = files.each_with_object({}) do |file, hash|
-        hash[file] = temp_paths.add
-      end
-
-      Parallelizer.each(files, @concurrency) do |file|
-        Kraps.driver.download(file, temp_paths_index[file].path)
-      end
-
-      temp_paths
+      Downloader.download_all(prefix: Kraps.driver.with_prefix("#{token}/#{partition}/"), concurrency: @concurrency)
     end
 
     def jobs

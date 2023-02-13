@@ -100,7 +100,7 @@ module Kraps
 
       def push_and_wait(enum:, job_count: nil)
         redis_queue = RedisQueue.new(redis: Kraps.redis, token: SecureRandom.hex, namespace: Kraps.namespace, ttl: Kraps.job_ttl)
-        progress_bar = build_progress_bar("#{@klass}: job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, token #{redis_queue.token}, %a, %c/%C (%p%) => #{@step.action}")
+        progress_bar = build_progress_bar("#{@klass}: job #{@job_index + 1}/#{@jobs.size}, step #{@step_index + 1}/#{@job.steps.size}, #{@step.jobs || "?"} jobs, token #{redis_queue.token}, %a, %c/%C (%p%) => #{@step.action}")
 
         total = 0
 

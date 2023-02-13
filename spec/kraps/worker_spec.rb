@@ -514,8 +514,8 @@ module Kraps
         job2 = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
         job2 = job2.map {}
 
-        job2.combine(job1, jobs: 2) do |_, value1, value2|
-          (value1 || 0) + (value2 || 0)
+        job2.combine(job1, jobs: 2) do |key, value1, value2, collector|
+          collector.call(key, (value1 || 0) + (value2 || 0))
         end
       end
 

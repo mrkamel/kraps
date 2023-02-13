@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.8.0
+
+* Use number of partitions of previous step for `jobs` option by default
+* Changed `combine` to receive a `collector`
+* Added mandatory `concurrency` argument to `load`
+
 ## v0.7.0
 
 * Added a `jobs` option to the actions to limit the concurrency

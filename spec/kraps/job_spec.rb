@@ -58,8 +58,8 @@ module Kraps
 
         job = described_class.new(worker: TestJobWorker1)
 
-        job = job.parallelize(partitions: 8) {}
-        job = job.map(&block)
+        job = job.parallelize(partitions: 4) {}
+        job = job.map(partitions: 8, &block)
 
         expect(job.steps).to match(
           [
@@ -67,6 +67,7 @@ module Kraps
             an_object_having_attributes(
               action: Actions::MAP,
               partitions: 8,
+              jobs: 4,
               partitioner: kind_of(HashPartitioner),
               worker: TestJobWorker1,
               before: nil,
@@ -108,8 +109,8 @@ module Kraps
 
         job = described_class.new(worker: TestJobWorker1)
 
-        job = job.parallelize(partitions: 8) {}
-        job = job.map_partitions(&block)
+        job = job.parallelize(partitions: 4) {}
+        job = job.map_partitions(partitions: 8, &block)
 
         expect(job.steps).to match(
           [
@@ -117,6 +118,7 @@ module Kraps
             an_object_having_attributes(
               action: Actions::MAP_PARTITIONS,
               partitions: 8,
+              jobs: 4,
               partitioner: kind_of(HashPartitioner),
               worker: TestJobWorker1,
               before: nil,
@@ -427,7 +429,7 @@ module Kraps
         partitioner = ->(key) { key }
 
         job = described_class.new(worker: TestJobWorker1)
-        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner)
+        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner, concurrency: 8)
 
         expect(job.steps).to match(
           [
@@ -455,7 +457,7 @@ module Kraps
         partitioner = ->(key) { key }
 
         job = described_class.new(worker: TestJobWorker1)
-        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner, worker: TestJobWorker2)
+        job = job.load(prefix: "path/to/destination", partitions: 8, partitioner: partitioner, worker: TestJobWorker2, concurrency: 8)
 
         expect(job.steps).to match(
           [

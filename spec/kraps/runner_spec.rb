@@ -170,7 +170,7 @@ module Kraps
           job1 = job1.dump(prefix: "path/to/dump")
 
           job2 = Kraps::Job.new(worker: TestRunnerWorker)
-          job2 = job2.load(prefix: "path/to/dump", partitions: 4, partitioner: HashPartitioner.new)
+          job2 = job2.load(prefix: "path/to/dump", partitions: 4, partitioner: HashPartitioner.new, concurrency: 8)
 
           job2 = job2.each_partition do |partition, pairs|
             data << [partition, pairs.to_a]
@@ -207,8 +207,8 @@ module Kraps
             ("key1".."key3").each { |item| collector.call(item, 2) }
           end
 
-          job2 = job2.combine(job1) do |_, value1, value2|
-            value1 + value2
+          job2 = job2.combine(job1) do |key, value1, value2, collector|
+            collector.call(key, value1 + value2)
           end
 
           job3 = Kraps::Job.new(worker: TestRunnerWorker)
@@ -217,8 +217,8 @@ module Kraps
             ("key1".."key3").each { |item| collector.call(item, 3) }
           end
 
-          job3 = job3.combine(job2) do |_, value1, value2|
-            value1 + value2
+          job3 = job3.combine(job2) do |key, value1, value2, collector|
+            collector.call(key, value1 + value2)
           end
 
           job3.each_partition do |_, pairs|

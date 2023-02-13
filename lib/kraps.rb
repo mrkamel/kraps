@@ -19,6 +19,7 @@ require_relative "kraps/runner"
 require_relative "kraps/step"
 require_relative "kraps/frame"
 require_relative "kraps/worker"
+require_relative "kraps/downloader"
 
 module Kraps
   class Error < StandardError; end

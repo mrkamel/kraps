@@ -232,10 +232,11 @@ return the new key-value pair, but the `collector` must be used instead.
 The `jobs` argument can be useful when you need to access an external data
 source, like a relational database and you want to limit the number of workers
 accessing the store concurrently to avoid overloading it. If you don't specify
-it, it will be identical to the number of partitions. It is recommended to only
-use it for steps where you need to throttle the concurrency, because it will of
-course slow down the processing. The `jobs` argument only applies to the
-current step. The following steps don't inherit the argument, but reset it.
+it, it will be identical to the number of partitions of the previous step. It
+is recommended to only use it for steps where you need to throttle the
+concurrency, because it will of course slow down the processing. The `jobs`
+argument only applies to the current step. The following steps don't inherit
+the argument, but reset it.
 
 * `map_partitions`: Maps the key value pairs to other key value pairs, but the
   block receives all data of each partition as an enumerable and sorted by key.
@@ -273,8 +274,8 @@ most of the time, this is not neccessary and the key can simply be ignored.
   passed job result are completely omitted.
 
 ```ruby
-  job.combine(other_job, worker: MyKrapsWorker, jobs: 8) do |key, value1, value2|
-    (value1 || {}).merge(value2 || {})
+  job.combine(other_job, worker: MyKrapsWorker, jobs: 8) do |key, value1, value2, collector|
+    collector.call(key, (value1 || {}).merge(value2 || {}))
   end
 ```
 
@@ -316,10 +317,12 @@ It creates a folder for every partition and stores one or more chunks in there.
 * `load`: Loads the previously dumped data
 
 ```ruby
-job.load(prefix: "path/to/dump", partitions: 32, partitioner: Kraps::HashPartitioner.new, worker: MyKrapsWorker)
+job.load(prefix: "path/to/dump", partitions: 32, concurrency: 8, partitioner: Kraps::HashPartitioner.new, worker: MyKrapsWorker)
 ```
 
-The number of partitions and the partitioner must be specified.
+The number of partitions, the partitioner and concurrency must be specified.
+The concurrency specifies the number of threads used for downloading chunks in
+parallel.
 
 Please note that every API method accepts a `before` callable:
 
