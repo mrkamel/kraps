@@ -214,6 +214,10 @@ job.parallelize(partitions: 128, partitioner: partitioner, worker: MyKrapsWorker
 end
 ```
 
+Please note, that `parallelize` itself is not parallelized but rather
+parallelizes the data you feed into Kraps within `parallelize` by splitting it
+into the number of `partitions` specified.
+
 The block must use the collector to feed Kraps with individual items. The
 items are used as keys and the values are set to `nil`.
 
