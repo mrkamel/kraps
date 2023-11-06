@@ -21,7 +21,7 @@ module Kraps
 
           job = job.map do |key, _, collector|
             3.times do
-              collector.call(key, key.gsub(/key/, "").to_i)
+              collector.call(key, key.gsub("key", "").to_i)
             end
           end
 
@@ -55,7 +55,7 @@ module Kraps
 
           job = job.map(jobs: 6) do |key, _, collector|
             3.times do
-              collector.call(key, key.gsub(/key/, "").to_i)
+              collector.call(key, key.gsub("key", "").to_i)
             end
           end
 
@@ -89,7 +89,7 @@ module Kraps
 
           job = job.map do |key, _, collector|
             3.times do
-              collector.call(key, key.gsub(/key/, "").to_i * multiplier)
+              collector.call(key, key.gsub("key", "").to_i * multiplier)
             end
           end
 
@@ -124,7 +124,7 @@ module Kraps
 
           job = job.map do |key, _, collector|
             3.times do
-              collector.call(key, key.gsub(/key/, "").to_i)
+              collector.call(key, key.gsub("key", "").to_i)
             end
           end
 

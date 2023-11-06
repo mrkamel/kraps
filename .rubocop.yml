@@ -16,6 +16,9 @@ Lint/UnreachableLoop:
 Metrics/BlockLength:
   Enabled: false
 
+Style/ZeroLengthPredicate:
+  Enabled: false
+
 Gemspec/RequiredRubyVersion:
   Enabled: false
 
