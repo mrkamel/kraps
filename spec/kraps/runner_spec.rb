@@ -198,13 +198,13 @@ module Kraps
           job1 = Kraps::Job.new(worker: TestRunnerWorker)
 
           job1 = job1.parallelize(partitions: 8) { |collector| collector.call(1) }.map do |_, _, collector|
-            ("key1".."key3").each { |item| collector.call(item, 1) }
+            ("key1".."key5").each { |item| collector.call(item, 1) }
           end
 
           job2 = Kraps::Job.new(worker: TestRunnerWorker)
 
           job2 = job2.parallelize(partitions: 8) { |collector| collector.call(1) }.map do |_, _, collector|
-            ("key1".."key3").each { |item| collector.call(item, 2) }
+            ("key1".."key4").each { |item| collector.call(item, 2) }
           end
 
           job2 = job2.combine(job1) do |key, value1, value2, collector|
@@ -230,6 +230,7 @@ module Kraps
 
         described_class.new(TestRunner).call
 
+        # Note that combine omits keys only available in the passed job
         expect(store).to eq("key1" => 6, "key2" => 6, "key3" => 6)
       end
 
