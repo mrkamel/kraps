@@ -312,7 +312,7 @@ module Kraps
         job = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
 
         job = job.map_partitions do |_, pairs, collector|
-          pairs.each_key do |key|
+          pairs.each do |key, _|
             collector.call(key + "a", 1)
             collector.call(key + "b", 1)
             collector.call(key + "a", 1)
