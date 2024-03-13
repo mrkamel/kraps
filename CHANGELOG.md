@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## v0.9.0
+
+* Argments are no longer passed to the `call` method, but to the
+  initializer instead
+
+Before:
+
+```ruby
+class MyJob
+  def call(arg1, arg2)
+    # ...
+  end
+end
+```
+
+After:
+
+```ruby
+class MyJob
+  def initializer(arg1, arg2)
+    @arg1 = arg1
+    @arg2 = arg2
+  end
+
+  def call
+    # ...
+  end
+end
+```
+
 ## v0.8.0
 
 * Use number of partitions of previous step for `jobs` option by default

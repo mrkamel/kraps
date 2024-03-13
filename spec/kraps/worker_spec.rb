@@ -12,7 +12,7 @@ module Kraps
       before_called = false
       before = -> { before_called = true }
 
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker).parallelize(partitions: 8, before: before) {}
       end
 
@@ -35,7 +35,7 @@ module Kraps
     end
 
     it "executes the specified parallelize action" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker).parallelize(partitions: 8) do |collector|
           ["item1", "item2", "item3"].each { |item| collector.call(item) }
         end
@@ -61,7 +61,7 @@ module Kraps
     end
 
     it "executes the specified map action" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
            .map { |key, _, collector| collector.call(key, 1) }
@@ -142,7 +142,7 @@ module Kraps
     end
 
     it "executes the specified map action and reduces already when the next step is a reduce step" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         job = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
 
         job = job.map do |key, _, collector|
@@ -211,7 +211,7 @@ module Kraps
     it "executes the specified map partitions action" do
       partitions = []
 
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
            .map { |key, _, collector| collector.call(key, 1) }
@@ -308,7 +308,7 @@ module Kraps
     end
 
     it "executes the specified map partitions action and reduces already when the next step is a reduce step" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         job = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
 
         job = job.map_partitions do |_, pairs, collector|
@@ -371,7 +371,7 @@ module Kraps
     end
 
     it "executes the specified reduce action" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
            .map {}
@@ -447,7 +447,7 @@ module Kraps
     it "executes the specified each partition action" do
       partitions = []
 
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
            .each_partition(jobs: 2) do |partition, pairs|
@@ -507,7 +507,7 @@ module Kraps
     end
 
     it "executes the specified combine action" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         job1 = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
         job1 = job1.map {}
 
@@ -628,10 +628,16 @@ module Kraps
       passed_args = nil
       passed_kwargs = nil
 
-      TestWorker.define_method(:call) do |*args, **kwargs|
+      test_worker = TestWorker.new
+
+      allow(TestWorker).to receive(:new) do |*args, **kwargs|
         passed_args = args
         passed_kwargs = kwargs
 
+        test_worker
+      end
+
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker).parallelize(partitions: 4) {}
       end
 
@@ -653,7 +659,7 @@ module Kraps
     end
 
     it "passes the right number of partitions to the partitioner" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4, partitioner: proc { |key, num_partitions| [key, num_partitions] }) {}
            .map(partitions: 8) { raise("error") }
@@ -680,7 +686,7 @@ module Kraps
       logger = double
       allow(logger).to receive(:error)
 
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
            .map { raise("error") }
@@ -723,7 +729,7 @@ module Kraps
     end
 
     it "does not stop until the queue is empty or stopped" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
            .map {}
@@ -759,7 +765,7 @@ module Kraps
     end
 
     it "respects the specified memory limit in parallelize" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker).parallelize(partitions: 4) {}
       end
 
@@ -785,7 +791,7 @@ module Kraps
     end
 
     it "respects the specified memory limit in map" do
-      TestWorker.define_method(:call) do
+      allow_any_instance_of(TestWorker).to receive(:call) do
         Job.new(worker: TestWorker)
            .parallelize(partitions: 4) {}
            .map {}

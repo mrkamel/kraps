@@ -5,7 +5,7 @@ module Kraps
     end
 
     def call(*args, **kwargs)
-      JobResolver.new.call(@klass.new.call(*args, **kwargs)).tap do |jobs|
+      JobResolver.new.call(@klass.new(*args, **kwargs).call).tap do |jobs|
         jobs.each_with_index do |job, job_index|
           job.steps.each_with_index.inject(nil) do |frame, (_, step_index)|
             StepRunner.new(

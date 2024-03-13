@@ -274,7 +274,7 @@ module Kraps
     end
 
     def jobs
-      @jobs ||= JobResolver.new.call(@args["klass"].constantize.new.call(*@args["args"], **@args["kwargs"].transform_keys(&:to_sym)))
+      @jobs ||= JobResolver.new.call(@args["klass"].constantize.new(*@args["args"], **@args["kwargs"].transform_keys(&:to_sym)).call)
     end
 
     def job

@@ -38,16 +38,21 @@ Kraps.configure(
 
 Afterwards, create a job class, which tells Kraps what your job should do.
 Therefore, you create some class with a `call` method, and optionally some
-arguments. Let's create a simple job, which reads search log files to analyze
-how often search queries have been searched:
+arguments passed to its initializer. Let's create a simple job, which reads
+search log files to analyze how often search queries have been searched:
 
 ```ruby
 class SearchLogCounter
-  def call(start_date:, end_date:)
+  def initialize(start_date:, end_date:)
+    @start_date = start_date
+    @end_date = end_date
+  end
+
+  def call
     job = Kraps::Job.new(worker: MyKrapsWorker)
 
     job = job.parallelize(partitions: 128) do |collector|
-      (Date.parse(start_date)..Date.parse(end_date)).each do |date|
+      (Date.parse(@start_date)..Date.parse(@end_date)).each do |date|
         collector.call(date.to_s)
       end
     end
@@ -349,11 +354,16 @@ of searches made:
 
 ```ruby
 class SearchLogCounter
-  def call(start_date:, end_date:)
+  def initialize(start_date:, end_date:)
+    @start_date = start_date
+    @end_date = end_date
+  end
+
+  def call
     count_job = Kraps::Job.new(worker: SomeBackgroundWorker)
 
     count_job = count_job.parallelize(partitions: 128) do |collector|
-      (Date.parse(start_date)..Date.parse(end_date)).each do |date|
+      (Date.parse(@start_date)..Date.parse(@end_date)).each do |date|
         collector.call(date.to_s)
       end
     end

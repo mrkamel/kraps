@@ -12,7 +12,7 @@ module Kraps
       it "requests the job spec, iterates and runs the jobs and steps" do
         store = {}
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
           job = job.parallelize(partitions: 8) do |collector|
@@ -46,7 +46,7 @@ module Kraps
       it "does not matter how many jobs are specified in a step for the outcome to be correct" do
         store = {}
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
           job = job.parallelize(partitions: 8) do |collector|
@@ -80,7 +80,19 @@ module Kraps
       it "accepts positional and keyword arguments" do
         store = {}
 
-        TestRunner.define_method(:call) do |multiplier, divisor:|
+        test_runner = TestRunner.new
+
+        passed_multiplier = nil
+        passed_divisor = nil
+
+        allow(TestRunner).to receive(:new) do |multiplier, divisor:|
+          passed_multiplier = multiplier
+          passed_divisor = divisor
+
+          test_runner
+        end
+
+        allow(test_runner).to receive(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
           job = job.parallelize(partitions: 8) do |collector|
@@ -89,7 +101,7 @@ module Kraps
 
           job = job.map do |key, _, collector|
             3.times do
-              collector.call(key, key.gsub("key", "").to_i * multiplier)
+              collector.call(key, key.gsub("key", "").to_i * passed_multiplier)
             end
           end
 
@@ -99,7 +111,7 @@ module Kraps
 
           job = job.each_partition do |_, pairs|
             pairs.each do |key, value|
-              store[key] = value / divisor
+              store[key] = value / passed_divisor
             end
           end
 
@@ -115,7 +127,19 @@ module Kraps
         store1 = {}
         store2 = {}
 
-        TestRunner.define_method(:call) do |multiplier1:, multiplier2:|
+        test_runner = TestRunner.new
+
+        passed_multiplier1 = nil
+        passed_multiplier2 = nil
+
+        allow(TestRunner).to receive(:new) do |multiplier1:, multiplier2:|
+          passed_multiplier1 = multiplier1
+          passed_multiplier2 = multiplier2
+
+          test_runner
+        end
+
+        allow(test_runner).to receive(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
           job = job.parallelize(partitions: 8) do |collector|
@@ -134,13 +158,13 @@ module Kraps
 
           job1 = job.each_partition do |_, pairs|
             pairs.each do |key, value|
-              store1[key] = value * multiplier1
+              store1[key] = value * passed_multiplier1
             end
           end
 
           job2 = job.each_partition do |_, pairs|
             pairs.each do |key, value|
-              store2[key] = value * multiplier2
+              store2[key] = value * passed_multiplier2
             end
           end
 
@@ -156,7 +180,7 @@ module Kraps
       it "allows to dump and load data" do
         data = []
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           job1 = Kraps::Job.new(worker: TestRunnerWorker)
 
           job1 = job1.parallelize(partitions: 4) do |collector|
@@ -194,7 +218,7 @@ module Kraps
       it "correctly resolves the job dependencies even when recursive" do
         store = {}
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           job1 = Kraps::Job.new(worker: TestRunnerWorker)
 
           job1 = job1.parallelize(partitions: 8) { |collector| collector.call(1) }.map do |_, _, collector|
@@ -239,7 +263,7 @@ module Kraps
         map_calls = 0
         reduce_calls = 0
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
           job = job.parallelize(partitions: 8) do |collector|
@@ -288,7 +312,7 @@ module Kraps
 
         allow(SecureRandom).to receive(:hex).and_return("token1", "token2", "token3")
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
           job = job.parallelize(partitions: 4) do |collector|
@@ -316,7 +340,7 @@ module Kraps
 
         allow(SecureRandom).to receive(:hex).and_return("token1", "token2")
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
           job = job.parallelize(partitions: 4) do |collector|
@@ -337,7 +361,7 @@ module Kraps
       it "stops and raises a JobStopped error when a distributed job was stopped" do
         allow_any_instance_of(RedisQueue).to receive(:stopped?).and_return(true)
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           job = Kraps::Job.new(worker: TestRunnerWorker)
 
           job = job.parallelize(partitions: 8) do |collector|
@@ -356,7 +380,7 @@ module Kraps
         allow(RedisQueue).to receive(:new).and_return(redis_queue)
         allow(ProgressBar).to receive(:create).and_raise(Interrupt)
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           Kraps::Job.new(worker: TestRunnerWorker).parallelize(partitions: 8) { |collector| collector.call("key") }
         end
 
@@ -367,7 +391,7 @@ module Kraps
       it "shows a progress bar" do
         allow(ProgressBar).to receive(:create).and_call_original
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           Kraps::Job.new(worker: TestRunnerWorker).parallelize(partitions: 8) { |collector| collector.call("item") }
         end
 
@@ -381,7 +405,7 @@ module Kraps
 
         allow(ProgressBar).to receive(:create).and_call_original
 
-        TestRunner.define_method(:call) do
+        allow_any_instance_of(TestRunner).to receive(:call) do
           Kraps::Job.new(worker: TestRunnerWorker).parallelize(partitions: 8) { |collector| collector.call("item") }
         end
 

@@ -16,6 +16,9 @@ Lint/UnreachableLoop:
 Metrics/BlockLength:
   Enabled: false
 
+Style/HashEachMethods:
+  Enabled: false
+
 Style/ZeroLengthPredicate:
   Enabled: false
 
