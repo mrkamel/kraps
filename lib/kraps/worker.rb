@@ -86,6 +86,57 @@ module Kraps
       temp_paths&.delete
     end
 
+    def perform_append(payload)
+      temp_paths1 = download_all(token: @args["frame"]["token"], partition: payload["partition"])
+      temp_paths2 = download_all(token: payload["append_frame"]["token"], partition: payload["partition"])
+
+      implementation = Object.new
+      implementation.define_singleton_method(:map) do |key, value, &block|
+        block.call(key, value)
+      end
+
+      subsequent_step = next_step
+
+      if subsequent_step&.action == Actions::REDUCE
+        implementation.define_singleton_method(:reduce) do |key, value1, value2|
+          subsequent_step.block.call(key, value1, value2)
+        end
+      end
+
+      mapper = MapReduce::Mapper.new(implementation, partitioner: partitioner, memory_limit: @memory_limit)
+
+      temp_paths1.each do |temp_path|
+        File.open(temp_path.path) do |stream|
+          stream.each_line do |line|
+            key, value = JSON.parse(line)
+
+            mapper.map(key, value)
+          end
+        end
+      end
+
+      temp_paths2.each do |temp_path|
+        File.open(temp_path.path) do |stream|
+          stream.each_line do |line|
+            key, value = JSON.parse(line)
+
+            mapper.map(key, value)
+          end
+        end
+      end
+
+      mapper.shuffle(chunk_limit: @chunk_limit) do |partitions|
+        Parallelizer.each(partitions.to_a, @concurrency) do |partition, path|
+          File.open(path) do |stream|
+            Kraps.driver.store(Kraps.driver.with_prefix("#{@args["token"]}/#{partition}/chunk.#{payload["partition"]}.json"), stream)
+          end
+        end
+      end
+    ensure
+      temp_paths1&.delete
+      temp_paths2&.delete
+    end
+
     def perform_map_partitions(payload)
       temp_paths = download_all(token: @args["frame"]["token"], partition: payload["partition"])
 

@@ -91,6 +91,21 @@ module Kraps
         Frame.new(token: token, partitions: @step.partitions)
       end
 
+      def perform_append
+        append_job = @step.dependency
+        append_step = append_job.steps[@step.options[:append_step_index]]
+
+        raise(IncompatibleFrame, "Incompatible number of partitions") if append_step.partitions != @step.partitions
+
+        enum = (0...@frame.partitions).map do |partition|
+          { partition: partition, append_frame: append_step.frame.to_h }
+        end
+
+        token = push_and_wait(job_count: @step.jobs, enum: enum)
+
+        Frame.new(token: token, partitions: @step.partitions)
+      end
+
       def perform_each_partition
         enum = (0...@frame.partitions).map { |partition| { partition: partition } }
         push_and_wait(job_count: @step.jobs, enum: enum)

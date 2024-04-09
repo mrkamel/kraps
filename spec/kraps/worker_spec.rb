@@ -506,6 +506,212 @@ module Kraps
       )
     end
 
+    it "executes the specified append action" do
+      allow_any_instance_of(TestWorker).to receive(:call) do
+        job1 = Job.new(worker: TestWorker).parallelize(partitions: 2) {}
+        job1 = job1.map {}
+
+        job2 = Job.new(worker: TestWorker).parallelize(partitions: 2) {}
+        job2 = job2.map {}
+
+        job2.append(job1, jobs: 2)
+      end
+
+      chunk1 = [
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key2", 2])
+      ].join("\n")
+
+      chunk2 = [
+        JSON.generate(["key3", 3]),
+        JSON.generate(["key4", 3]),
+        JSON.generate(["key5", 5])
+      ].join("\n")
+
+      chunk3 = [
+        JSON.generate(["key4", 4]),
+        JSON.generate(["key5", 5]),
+        JSON.generate(["key6", 6])
+      ].join("\n")
+
+      Kraps.driver.store("prefix/append_token/0/chunk.0.json", chunk1)
+      Kraps.driver.store("prefix/append_token/0/chunk.1.json", chunk2)
+      Kraps.driver.store("prefix/append_token/1/chunk.0.json", chunk3)
+
+      chunk4 = [
+        JSON.generate(["key0", 1]),
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key3", 1])
+      ].join("\n")
+
+      chunk5 = [
+        JSON.generate(["key3", 1]),
+        JSON.generate(["key5", 2]),
+        JSON.generate(["key6", 3]),
+        JSON.generate(["key7", 4])
+      ].join("\n")
+
+      chunk6 = [
+        JSON.generate(["key4", 3]),
+        JSON.generate(["key6", 4]),
+        JSON.generate(["key6", 5]),
+        JSON.generate(["key7", 6]),
+        JSON.generate(["key8", 7])
+      ].join("\n")
+
+      Kraps.driver.store("prefix/previous_token/0/chunk.0.json", chunk4)
+      Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk5)
+      Kraps.driver.store("prefix/previous_token/1/chunk.0.json", chunk6)
+
+      redis_queue.enqueue(partition: 0, append_frame: { token: "append_token", partitions: 2 })
+      redis_queue.enqueue(partition: 1, append_frame: { token: "append_token", partitions: 2 })
+
+      build_worker(
+        args: {
+          token: redis_queue.token,
+          action: Actions::APPEND,
+          frame: { token: "previous_token", partitions: 2 },
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 1,
+          step_index: 2
+        }
+      ).call(retries: 0)
+
+      expect(Kraps.driver.list.to_a).to eq(
+        [
+          "prefix/append_token/0/chunk.0.json",
+          "prefix/append_token/0/chunk.1.json",
+          "prefix/append_token/1/chunk.0.json",
+          "prefix/previous_token/0/chunk.0.json",
+          "prefix/previous_token/0/chunk.1.json",
+          "prefix/previous_token/1/chunk.0.json",
+          "prefix/token/0/chunk.0.json",
+          "prefix/token/0/chunk.1.json",
+          "prefix/token/1/chunk.0.json",
+          "prefix/token/1/chunk.1.json"
+        ]
+      )
+      expect(Kraps.driver.value("prefix/token/0/chunk.0.json").strip).to eq(
+        [JSON.generate(["key2", 2]), JSON.generate(["key3", 1]), JSON.generate(["key3", 1]), JSON.generate(["key3", 3]), JSON.generate(["key5", 2]), JSON.generate(["key5", 5]), JSON.generate(["key7", 4])].join("\n")
+      )
+      expect(Kraps.driver.value("prefix/token/0/chunk.1.json").strip).to eq(
+        [JSON.generate(["key5", 5]), JSON.generate(["key7", 6])].join("\n")
+      )
+      expect(Kraps.driver.value("prefix/token/1/chunk.0.json").strip).to eq(
+        [JSON.generate(["key0", 1]), JSON.generate(["key1", 1]), JSON.generate(["key1", 1]), JSON.generate(["key1", 1]), JSON.generate(["key4", 3]), JSON.generate(["key6", 3])].join("\n")
+      )
+      expect(Kraps.driver.value("prefix/token/1/chunk.1.json").strip).to eq(
+        [JSON.generate(["key4", 3]), JSON.generate(["key4", 4]), JSON.generate(["key6", 4]), JSON.generate(["key6", 5]), JSON.generate(["key6", 6]), JSON.generate(["key8", 7])].join("\n")
+      )
+    end
+
+    it "executes the specified append action and reduces already when the next step is a reduce step" do
+      allow_any_instance_of(TestWorker).to receive(:call) do
+        job1 = Job.new(worker: TestWorker).parallelize(partitions: 2) {}
+        job1 = job1.map {}
+
+        job2 = Job.new(worker: TestWorker).parallelize(partitions: 2) {}
+        job2 = job2.map {}
+
+        job2.append(job1, jobs: 2).reduce do |_, value1, value2|
+          value1 + value2
+        end
+      end
+
+      chunk1 = [
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key2", 2])
+      ].join("\n")
+
+      chunk2 = [
+        JSON.generate(["key3", 3]),
+        JSON.generate(["key4", 3]),
+        JSON.generate(["key5", 5])
+      ].join("\n")
+
+      chunk3 = [
+        JSON.generate(["key4", 4]),
+        JSON.generate(["key5", 5]),
+        JSON.generate(["key6", 6])
+      ].join("\n")
+
+      Kraps.driver.store("prefix/append_token/0/chunk.0.json", chunk1)
+      Kraps.driver.store("prefix/append_token/0/chunk.1.json", chunk2)
+      Kraps.driver.store("prefix/append_token/1/chunk.0.json", chunk3)
+
+      chunk4 = [
+        JSON.generate(["key0", 1]),
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key1", 1]),
+        JSON.generate(["key3", 1])
+      ].join("\n")
+
+      chunk5 = [
+        JSON.generate(["key3", 1]),
+        JSON.generate(["key5", 2]),
+        JSON.generate(["key6", 3]),
+        JSON.generate(["key7", 4])
+      ].join("\n")
+
+      chunk6 = [
+        JSON.generate(["key4", 3]),
+        JSON.generate(["key6", 4]),
+        JSON.generate(["key6", 5]),
+        JSON.generate(["key7", 6]),
+        JSON.generate(["key8", 7])
+      ].join("\n")
+
+      Kraps.driver.store("prefix/previous_token/0/chunk.0.json", chunk4)
+      Kraps.driver.store("prefix/previous_token/0/chunk.1.json", chunk5)
+      Kraps.driver.store("prefix/previous_token/1/chunk.0.json", chunk6)
+
+      redis_queue.enqueue(partition: 0, append_frame: { token: "append_token", partitions: 2 })
+      redis_queue.enqueue(partition: 1, append_frame: { token: "append_token", partitions: 2 })
+
+      build_worker(
+        args: {
+          token: redis_queue.token,
+          action: Actions::APPEND,
+          frame: { token: "previous_token", partitions: 2 },
+          klass: "TestWorker",
+          args: [],
+          kwargs: {},
+          job_index: 1,
+          step_index: 2
+        }
+      ).call(retries: 0)
+
+      expect(Kraps.driver.list.to_a).to eq(
+        [
+          "prefix/append_token/0/chunk.0.json",
+          "prefix/append_token/0/chunk.1.json",
+          "prefix/append_token/1/chunk.0.json",
+          "prefix/previous_token/0/chunk.0.json",
+          "prefix/previous_token/0/chunk.1.json",
+          "prefix/previous_token/1/chunk.0.json",
+          "prefix/token/0/chunk.0.json",
+          "prefix/token/0/chunk.1.json",
+          "prefix/token/1/chunk.0.json",
+          "prefix/token/1/chunk.1.json"
+        ]
+      )
+      expect(Kraps.driver.value("prefix/token/0/chunk.0.json").strip).to eq(
+        [JSON.generate(["key2", 2]), JSON.generate(["key3", 5]), JSON.generate(["key5", 7]), JSON.generate(["key7", 4])].join("\n")
+      )
+      expect(Kraps.driver.value("prefix/token/0/chunk.1.json").strip).to eq(
+        [JSON.generate(["key5", 5]), JSON.generate(["key7", 6])].join("\n")
+      )
+      expect(Kraps.driver.value("prefix/token/1/chunk.0.json").strip).to eq(
+        [JSON.generate(["key0", 1]), JSON.generate(["key1", 3]), JSON.generate(["key4", 3]), JSON.generate(["key6", 3])].join("\n")
+      )
+      expect(Kraps.driver.value("prefix/token/1/chunk.1.json").strip).to eq(
+        [JSON.generate(["key4", 7]), JSON.generate(["key6", 15]), JSON.generate(["key8", 7])].join("\n")
+      )
+    end
+
     it "executes the specified combine action" do
       allow_any_instance_of(TestWorker).to receive(:call) do
         job1 = Job.new(worker: TestWorker).parallelize(partitions: 4) {}
