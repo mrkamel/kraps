@@ -209,7 +209,6 @@ module Kraps
     describe "#append" do
       it "appends the corresponding step" do
         job1 = described_class.new(worker: TestJobWorker1)
-        job1 = described_class.new(worker: TestJobWorker1)
         job1 = job1.parallelize(partitions: 8) do |collector|
           collector.call("key1", 1)
           collector.call("key2", 2)
@@ -245,7 +244,6 @@ module Kraps
       end
 
       it "respects the passed jobs, worker and before" do
-        block = -> {}
         before = -> {}
 
         job1 = described_class.new(worker: TestJobWorker1)
