@@ -215,6 +215,38 @@ module Kraps
         )
       end
 
+      it "allows to append steps" do
+        store = []
+
+        allow_any_instance_of(TestRunner).to receive(:call) do
+          job1 = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job1 = job1.parallelize(partitions: 8) { |collector| collector.call(1) }.map do |_, _, collector|
+            ("key1".."key3").each { |item| collector.call(item, 1) }
+          end
+
+          job1 = job1.map { |key, value, collector| collector.call(key, value + 1) }
+
+          job2 = Kraps::Job.new(worker: TestRunnerWorker)
+
+          job2 = job2.parallelize(partitions: 8) { |collector| collector.call(1) }.map do |_, _, collector|
+            ("key3".."key6").each { |item| collector.call(item, 2) }
+          end
+
+          job2 = job2.map { |key, value, collector| collector.call(key, value + 1) }
+
+          job1.append(job2).each_partition do |_, pairs|
+            pairs.each do |key, value|
+              store << [key, value]
+            end
+          end
+        end
+
+        described_class.new(TestRunner).call
+
+        expect(store.sort).to eq([["key1", 2], ["key2", 2], ["key3", 2], ["key3", 3], ["key4", 3], ["key5", 3], ["key6", 3]])
+      end
+
       it "correctly resolves the job dependencies even when recursive" do
         store = {}
 

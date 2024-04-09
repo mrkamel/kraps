@@ -276,6 +276,15 @@ The `key` itself is also passed to the block for the case that you need to
 customize the reduce calculation according to the value of the key. However,
 most of the time, this is not neccessary and the key can simply be ignored.
 
+* `append`: Appends the results of 2 jobs, such that all key-value pairs
+  of both jobs will be in the result. `append` does not accept any block.
+
+```ruby
+  job.append(other_job, worker: MyKrapsWorker, jobs: 8)
+```
+Please note that the partitioners and the number of partitions must match for
+the jobs to be appended.
+
 * `combine`: Combines the results of 2 jobs by combining every key available
   in the current job result with the corresponding key from the passed job
   result. When the passed job result does not have the corresponding key,

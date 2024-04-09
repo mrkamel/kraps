@@ -103,6 +103,24 @@ module Kraps
       end
     end
 
+    def append(other_job, jobs: nil, worker: @worker, before: nil, &block)
+      fresh.tap do |job|
+        job.instance_eval do
+          @steps << Step.new(
+            action: Actions::APPEND,
+            jobs: [jobs, @partitions].compact.min,
+            partitions: @partitions,
+            partitioner: @partitioner,
+            worker: worker,
+            before: before,
+            block: block,
+            dependency: other_job,
+            options: { append_step_index: other_job.steps.size - 1 }
+          )
+        end
+      end
+    end
+
     def each_partition(jobs: nil, worker: @worker, before: nil, &block)
       fresh.tap do |job|
         job.instance_eval do

@@ -54,6 +54,9 @@ Style/StringLiteralsInInterpolation:
   Enabled: true
   EnforcedStyle: double_quotes
 
+Style/RedundantSelfAssignment:
+  Enabled: false
+
 Layout/LineLength:
   Max: 250
 
