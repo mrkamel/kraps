@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.10.0
+
+* `append` operation added
+
 ## v0.9.0
 
 * Argments are no longer passed to the `call` method, but to the
